@@ -1,7 +1,7 @@
 from encoder import model
 from helpers import remove_stop_words
 from helpers import get_key_words
-
+from helpers import similarity_score
 def Correct_NLP(Student_Response,Teacher_model_answer,preferences,key_points):
     marks = 0
     max_marks = preferences['max_marks']
@@ -44,9 +44,8 @@ def Correct_NLP(Student_Response,Teacher_model_answer,preferences,key_points):
     
     model_embedding = model.encode(model_answer)
     student_embedding = model.encode(student_response)
-    similarity = model.cosine_similarity(model_embedding, student_embedding)
-    similarity= float(similarity)
-    
+    similarity = similarity_score(model_answer, student_response)
+
     #50% similarity, 30% key words, 20% length factor
     score = (similarity * 0.5) + (x_factor_score * 0.3) + (length_factor * 0.2)
     marks = round(score * max_marks,2)

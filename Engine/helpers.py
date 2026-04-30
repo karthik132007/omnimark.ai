@@ -1,5 +1,14 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 
+# universal helper functions for grading
+
+def similarity_score(text1, text2):
+    vectorizer = TfidfVectorizer()
+    vectors = vectorizer.fit_transform([text1, text2])
+    similarity = (vectors * vectors.T).A[0, 1]
+    return similarity
+
+
 #NLP helper functions for grading
 def remove_stop_words(text):
     stop_words = set(['the', 'is', 'in', 'and', 'to', 'of', 'a', 'that', 'it', 'with', 'as', 'for', 'was', 'on', 'are', 'by', 'this', 'be', 'or', 'from','.',',','!','?']) 
