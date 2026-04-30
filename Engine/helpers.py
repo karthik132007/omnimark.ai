@@ -1,13 +1,22 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
-
+from Engine.encoder import model
+from nltk.stem import WordNetLemmatizer
 # universal helper functions for grading
+from sentence_transformers import util
 
 def similarity_score(text1, text2):
-    vectorizer = TfidfVectorizer()
-    vectors = vectorizer.fit_transform([text1, text2])
-    similarity = (vectors * vectors.T).A[0, 1]
+    model_embedding = model.encode(text1)
+    student_embedding = model.encode(text2)
+    similarity = util.cos_sim(model_embedding, student_embedding).item()
     return similarity
 
+
+import nltk
+from nltk.stem import WordNetLemmatizer
+import re
+
+nltk.download('wordnet', quiet=True)
+lemmatizer = WordNetLemmatizer()
 
 #NLP helper functions for grading
 def remove_stop_words(text):
@@ -20,7 +29,20 @@ def get_key_words(text):
     X = vectorizer.fit_transform([cleaned_text])
     scores = zip(vectorizer.get_feature_names_out(), X.toarray()[0])
     key_words = sorted(scores, key=lambda x: x[1], reverse=True)
-    return [word for word, score in key_words if score > 0]
+    # Return up to 15 unique lemmatized keywords
+    result = []
+    for word, score in key_words:
+        if score > 0:
+            lemma = lemmatizer.lemmatize(word)
+            if lemma not in result:
+                result.append(lemma)
+            if len(result) == 15:
+                break
+    return result
+
+def get_lemmatized_words(text):
+    words = re.findall(r'\b\w+\b', text.lower())
+    return set(lemmatizer.lemmatize(word) for word in words)
 
 #LLM based grading helper functions
 

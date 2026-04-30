@@ -10,3 +10,10 @@ create 2 modes for teacher
                 - gives what are those points
         - give extra prompts
         - can choose llm
+
+prefrences :
+{
+  "language_exam": false,
+  "max_marks": 10,
+  "length": 250
+}
