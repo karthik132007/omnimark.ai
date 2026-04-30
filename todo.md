@@ -8,7 +8,7 @@ Build an AI-powered answer sheet evaluation system with OCR, automated marking, 
 
 # Team Members & Responsibilities
 
-## 1. Karthikeya (You) - AI / ML Lead
+## 1. Karthikeya- AI / ML Lead
 ### Main Role:
 Handle all Machine Learning / AI systems.
 
