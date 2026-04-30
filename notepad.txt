@@ -1,0 +1,12 @@
+create 2 modes for teacher
+    - normal mode
+    - advanced mode
+        - can add rubric
+        - can set parameter
+            - correctness
+            - length(word count)
+            - relavence
+            - Coverage of Key Points
+                - gives what are those points
+        - give extra prompts
+        - can choose llm
