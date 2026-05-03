@@ -1,7 +1,7 @@
 import os
 import zipfile
-from db import db
-from Engine.OCR import extract_text_from_pdf
+from backend.db import db
+from Engine.OCR.ocr import extract_text_from_pdf
 from Engine.grade.nlp import Correct_NLP
 from Engine.grade.llm import Correct_LLM
 
@@ -25,6 +25,8 @@ def process_session(session_id, file_location):
     if not session:
         print(f"Session {session_id} not found in DB")
         return
+
+    pdf_files = unzip(file_location)
     total = len(pdf_files)
 
     db.sessions.update_one(
@@ -39,10 +41,10 @@ def process_session(session_id, file_location):
     teacher_model_answer = session.get("teacher_model_answer", "")
     question_paper = session.get("question_paper", "")
 
-    pdf_files = unzip(file_location)
     for pdf in pdf_files:
         student_name = os.path.basename(pdf).replace(".pdf", "")
-        text = extract_text_from_pdf(pdf)
+        extracted_data = extract_text_from_pdf(pdf)
+        text = " ".join([page["text"] for page in extracted_data])
         if correction_mode == "NLP":
             print(f"Processing {pdf} with NLP")
             result = Correct_NLP(Student_Response=text, Teacher_model_answer=teacher_model_answer, preferences=preferences, key_points=None)
@@ -55,7 +57,6 @@ def process_session(session_id, file_location):
             
         elif correction_mode == "LLM":
             print(f"Processing {pdf} with LLM")
-            text = extract_text_from_pdf(pdf)
             result = Correct_LLM(question_paper=question_paper, student_response=text, teacher_model_answer=teacher_model_answer, preferences=preferences)
             db.results.insert_one({
                 "session_id": session_id,
@@ -74,3 +75,6 @@ def process_session(session_id, file_location):
         {"session_id": session_id},
         {"$set": {"status": "completed"}}
         )
+
+def check_cheat_in_session(session_id):
+    pass

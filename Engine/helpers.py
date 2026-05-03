@@ -3,7 +3,7 @@ from Engine.encoder import model
 from nltk.stem import WordNetLemmatizer
 # universal helper functions for grading
 from sentence_transformers import util
-
+import datetime
 def similarity_score(text1, text2):
     model_embedding = model.encode(text1)
     student_embedding = model.encode(text2)
@@ -49,6 +49,7 @@ def get_lemmatized_words(text):
 def make_prompt(question_paper, teacher_model_answer, student_answer, preferences):
     prompt = f"""
     You are an expert examiner evaluating student answers fairly and strictly.
+    Today's date is {datetime.date.today()}
 
     ## Input Data
     Question Paper:
