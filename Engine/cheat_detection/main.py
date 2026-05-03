@@ -1,4 +1,4 @@
-from helpers import remove_stop_words, similarity_score
+from Engine.helpers import remove_stop_words, similarity_score
 
 def check_cheat(student1, student2):
 
