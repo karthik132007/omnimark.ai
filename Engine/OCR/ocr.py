@@ -17,12 +17,15 @@ def extract_text_from_pdf(pdf_path):
         img_path = f"temp_page_{page_num}.jpg"
         page.save(img_path, "JPEG")
 
-        result = ocr.predict(img_path, cls=True)
+        result = ocr.ocr(img_path)
 
-        page_text = []
-        for line in result[0]:
-            text = line[1][0]
-            page_text.append(text)
+        if result and result[0]:
+            page_text = []
+            for line in result[0]:
+                text = line[1][0]
+                page_text.append(text)
+        else:
+            page_text = []
 
         full_text.append({
             "page": page_num,

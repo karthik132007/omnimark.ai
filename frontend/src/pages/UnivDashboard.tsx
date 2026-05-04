@@ -5,8 +5,14 @@ import { Plus, Trash2, LogOut } from 'lucide-react';
 
 const API_URL = "http://localhost:8000";
 
+interface TeacherRecord {
+  _id: string;
+  email: string;
+  name: string;
+}
+
 export const UnivDashboard = () => {
-  const [teachers, setTeachers] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<TeacherRecord[]>([]);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,21 +20,36 @@ export const UnivDashboard = () => {
 
   const token = localStorage.getItem('token');
 
-  useEffect(() => {
-    if (!token) navigate('/auth');
-    fetchTeachers();
-  }, []);
-
   const fetchTeachers = async () => {
     try {
       const res = await axios.get(`${API_URL}/univ/teachers`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTeachers(res.data);
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
     }
   };
+
+  useEffect(() => {
+    if (!token) {
+      navigate('/auth');
+      return;
+    }
+
+    const loadTeachers = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/univ/teachers`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setTeachers(res.data);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    void loadTeachers();
+  }, [navigate, token]);
 
   const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,8 +58,8 @@ export const UnivDashboard = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       setName(''); setEmail(''); setPassword('');
-      fetchTeachers();
-    } catch (err) {
+      void fetchTeachers();
+    } catch {
       alert("Error adding teacher");
     }
   };
@@ -49,8 +70,8 @@ export const UnivDashboard = () => {
         await axios.delete(`${API_URL}/univ/teachers/${id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        fetchTeachers();
-      } catch (err) {
+        void fetchTeachers();
+      } catch {
         alert("Error deleting");
       }
     }

@@ -3,8 +3,8 @@ import zipfile
 from backend.db import db
 from Engine.OCR.ocr import extract_text_from_pdf
 from Engine.grade.nlp import Correct_NLP
-from Engine.grade.llm import Correct_LLM
-
+from Engine.grade.llm import LLM_Grade
+from PyPDF2 import PdfReader
 def unzip(path):
     folder = path.replace(".zip", "")
     os.makedirs(folder, exist_ok=True)
@@ -40,11 +40,16 @@ def process_session(session_id, file_location):
     #get teacher model answer and question paper from db using session_id
     teacher_model_answer = session.get("teacher_model_answer", "")
     question_paper = session.get("question_paper", "")
+    is_handwritten = preferences.get("is_handwritten", False)
 
     for pdf in pdf_files:
         student_name = os.path.basename(pdf).replace(".pdf", "")
-        extracted_data = extract_text_from_pdf(pdf)
-        text = " ".join([page["text"] for page in extracted_data])
+        if is_handwritten:
+            extracted_data = extract_text_from_pdf(pdf)
+            text = " ".join([page["text"] for page in extracted_data])
+        else:
+            text = get_text_from_nonOCR_pdf(pdf)
+        
         if correction_mode == "NLP":
             print(f"Processing {pdf} with NLP")
             result = Correct_NLP(Student_Response=text, Teacher_model_answer=teacher_model_answer, preferences=preferences, key_points=None)
@@ -57,7 +62,7 @@ def process_session(session_id, file_location):
             
         elif correction_mode == "LLM":
             print(f"Processing {pdf} with LLM")
-            result = Correct_LLM(question_paper=question_paper, student_response=text, teacher_model_answer=teacher_model_answer, preferences=preferences)
+            result = LLM_Grade(question_paper=question_paper, student_answer=text, teacher_model_answer=teacher_model_answer, preferences=preferences)
             db.results.insert_one({
                 "session_id": session_id,
                 "student_name": student_name,
@@ -69,12 +74,23 @@ def process_session(session_id, file_location):
             return {
                 "error": f"Unknown correction mode: {correction_mode}"
             }
+        db.sessions.update_one(
+            {"session_id": session_id},
+            {"$inc": {"processed": 1}},
+        )
     #check cheat for all students and update results in db
     
     db.sessions.update_one(
         {"session_id": session_id},
-        {"$set": {"status": "completed"}}
+        {"$set": {"status": "processed"}}
         )
 
 def check_cheat_in_session(session_id):
     pass
+
+def get_text_from_nonOCR_pdf(pdf_path):
+    reader = PdfReader(pdf_path)
+    text = ""
+    for page in reader.pages:
+        text += page.extract_text()
+    return text

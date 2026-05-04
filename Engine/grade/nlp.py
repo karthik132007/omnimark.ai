@@ -5,9 +5,9 @@ from Engine.helpers import get_lemmatized_words
 from Engine.helpers import similarity_score
 def Correct_NLP(Student_Response,Teacher_model_answer,preferences,key_points):
     marks = 0
-    max_marks = preferences['max_marks']
+    max_marks = preferences.get('max_marks', 100)
 
-    if preferences['language_exam'] == False:
+    if preferences.get('language_exam', False) == False:
         student_response = remove_stop_words(Student_Response)
         model_answer = remove_stop_words(Teacher_model_answer)
         answer_length = len(str(student_response).split()) #word count
@@ -19,7 +19,7 @@ def Correct_NLP(Student_Response,Teacher_model_answer,preferences,key_points):
         model_answer = Teacher_model_answer
 
     
-    min_length = preferences['length']
+    min_length = preferences.get('min_answer_length', preferences.get('length', 250))
     length_factor = min(answer_length / min_length, 1)
     # if answer_length >= min_length:
     #    length_diff = model_answer_length - answer_length

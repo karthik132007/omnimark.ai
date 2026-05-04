@@ -39,8 +39,8 @@ export const Auth = () => {
         localStorage.setItem('role', res.data.role);
         navigate('/univ-dashboard');
       }
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'An error occurred');
+    } catch (error: unknown) {
+      setError(axios.isAxiosError(error) ? String(error.response?.data?.detail || 'An error occurred') : 'An error occurred');
     } finally {
       setIsSubmitting(false);
     }
