@@ -17,3 +17,9 @@ prefrences :
   "max_marks": 10,
   "length": 250
 }
+
+im testing an ai powred automated paper evaution system, i want data to test 
+what u need to do is image 5 personas of students from topper of class to dumbest student of class 
+answer the question "What is Machine Learning" in 5 ways 
+give names also and tell what persona it is 
+and also give long answers and short answers also max 300 words min 50 words for difffrent students, because length is also a parameter
