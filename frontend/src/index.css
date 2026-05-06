@@ -4,6 +4,8 @@
 @theme {
   --animate-float-slow: float-slow 8s ease-in-out infinite;
   --animate-grid-pan: grid-pan 18s linear infinite;
+  --animate-fade-in: fade-in 200ms ease;
+  --animate-slide-in-right: slide-in-right 300ms cubic-bezier(0.22, 1, 0.36, 1);
 
   @keyframes float-slow {
     0%,
@@ -24,6 +26,16 @@
     100% {
       background-position: 120px 120px, 0 0;
     }
+  }
+
+  @keyframes fade-in {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+
+  @keyframes slide-in-right {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(0); }
   }
 }
 

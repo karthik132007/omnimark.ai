@@ -39,6 +39,7 @@ export const getTeacherSession = async (sessionId: string) => {
 export const createTeacherSession = async (form: EvaluationSetupFormState) => {
   const payload = new FormData();
   payload.append('name', form.name);
+  payload.append('teacher_email', 'teacher@example.com');
   const correctionMode = form.examType === 'Technical' ? 'LLM' : 'NLP';
   payload.append('correction_mode', correctionMode);
   payload.append('preferences_json', JSON.stringify(buildPreferencesPayload(form)));

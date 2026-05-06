@@ -20,6 +20,10 @@ import {
   Zap,
   Target,
   MessageSquare,
+  Eye,
+  X,
+  PieChart,
+  Activity,
 } from 'lucide-react';
 import type { TeacherSession } from '../../types/teacherDashboard';
 import type { SessionResult, NlpResult, LlmResult } from '../../types/teacherDashboard';
@@ -34,6 +38,14 @@ const isNlpResult = (result: NlpResult | LlmResult): result is NlpResult =>
   'similarity' in result && 'keyword_score' in result;
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
+
+const KNOWN_STRENGTHS = new Set([
+  "Good conceptual clarity", "Accurate facts", "Relevant content", "Well-structured answer", "Good examples", "Comprehensive coverage", "Good language use", "Critical thinking", "Original insights", "Effective communication", "Formal definition", "Real-world applications", "Clear intuitive understanding", "Sound reasoning", "Correct method/process", "Correct units/notation", "Answers all sub-parts", "Concise and focused", "Well-justified claims"
+]);
+
+const KNOWN_WEAKNESSES = new Set([
+  "Missed definitions", "Inaccurate facts", "Irrelevant content", "Poor structure", "Lack of examples", "Incomplete answer", "Poor language use", "Lack of critical thinking", "Plagiarism detected", "Ineffective communication", "Lack of formal definition", "Lack of real-world applications", "Unclear intuitive understanding", "Weak reasoning", "Incorrect method/process", "Incorrect units/notation", "Missed sub-parts", "Overly verbose", "Poor justification"
+]);
 
 /* ─── Stat Card ─── */
 const StatCard = ({ icon: Icon, label, value, sub, tone = 'slate' }: {
@@ -172,155 +184,426 @@ const NlpAnalytics = ({ results, maxMarks }: { results: SessionResult[]; maxMark
   );
 };
 
-/* ═══════════════════ LLM Card View ═══════════════════ */
-const LlmStudentCard = ({ result, index }: { result: SessionResult; index: number }) => {
-  const [expanded, setExpanded] = useState(false);
-  const res = result.result as LlmResult;
-  const questions = Object.keys(res.marks || {});
-  const hasOcrIssue = res.other_info?.ocr_issue_detected;
-
-  return (
-    <div className="interactive-surface rounded-[2rem] border border-white/75 bg-white/80 shadow-[0_16px_30px_rgba(148,163,184,0.08)] overflow-hidden transition-all">
-      {/* Header — always visible */}
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-4 px-6 py-5 text-left transition hover:bg-slate-50/60"
-      >
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-sm font-bold text-white">
-          {index + 1}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-[15px] font-bold text-slate-900 truncate">{result.student_name}</div>
-          <div className="mt-1 text-xs text-slate-500 truncate">{res.evaluation_note}</div>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {hasOcrIssue && (
-            <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700">
-              <AlertTriangle className="h-3 w-3" /> OCR
-            </span>
-          )}
-          <div className="text-right">
-            <div className="text-xl font-extrabold text-slate-900">{res.total_marks}</div>
-            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total</div>
-          </div>
-          <div className="flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-            <span className="text-xs font-bold text-emerald-700">{res.confidence_score}%</span>
-          </div>
-          {expanded ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
-        </div>
-      </button>
-
-      {/* Expanded detail */}
-      {expanded && (
-        <div className="border-t border-slate-100 px-6 py-5 space-y-5 animate-[fadeIn_200ms_ease]">
-          {/* Question-wise table */}
-          {questions.length > 0 && (
-            <div>
-              <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-[#0f172a]">
-                <Target className="h-3.5 w-3.5" /> Question-wise Breakdown
-              </div>
-              <div className="rounded-2xl border border-slate-100 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      <th className="px-5 py-3 text-left">Question</th>
-                      <th className="px-5 py-3 text-center">Marks</th>
-                      <th className="px-5 py-3 text-left">Feedback</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {questions.map((q) => (
-                      <tr key={q} className="border-t border-slate-50">
-                        <td className="px-5 py-3 font-semibold text-slate-800">{q}</td>
-                        <td className="px-5 py-3 text-center">
-                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-950 text-xs font-bold text-white">
-                            {res.marks[q]}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3 text-xs leading-relaxed text-slate-600">
-                          {res.question_feedback?.[q] || '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Evaluation note */}
-          {res.evaluation_note && (
-            <div className="rounded-2xl bg-[#eef2fc] p-5">
-              <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-600">
-                <MessageSquare className="h-3.5 w-3.5" /> Evaluation Note
-              </div>
-              <p className="text-[13px] leading-relaxed text-slate-700">{res.evaluation_note}</p>
-            </div>
-          )}
-
-          {/* Strengths & Weaknesses */}
-          {(res.other_info?.strengths?.length || res.other_info?.weaknesses?.length) ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {res.other_info?.strengths?.length ? (
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
-                  <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-emerald-700">
-                    <Zap className="h-3.5 w-3.5" /> Strengths
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {res.other_info.strengths.map((s) => (
-                      <span key={s} className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold text-emerald-800">{s}</span>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {res.other_info?.weaknesses?.length ? (
-                <div className="rounded-2xl border border-rose-100 bg-rose-50/60 p-4">
-                  <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-rose-700">
-                    <AlertTriangle className="h-3.5 w-3.5" /> Weaknesses
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {res.other_info.weaknesses.map((w) => (
-                      <span key={w} className="rounded-full bg-rose-100 px-3 py-1 text-[11px] font-semibold text-rose-800">{w}</span>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      )}
-    </div>
-  );
-};
-
+/* ═══════════════════ LLM Dashboard View ═══════════════════ */
 const LlmAnalytics = ({ results }: { results: SessionResult[] }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState<SessionResult | null>(null);
+  const [sortBy, setSortBy] = useState<'name' | 'marks_desc' | 'marks_asc'>('marks_desc');
+
   const totals = results.map((r) => (r.result as LlmResult).total_marks);
   const confidences = results.map((r) => (r.result as LlmResult).confidence_score);
   const avg = totals.length ? totals.reduce((a, b) => a + b, 0) / totals.length : 0;
   const avgConf = confidences.length ? confidences.reduce((a, b) => a + b, 0) / confidences.length : 0;
   const highest = totals.length ? Math.max(...totals) : 0;
 
+  // Derive OCR issues count
+  const ocrIssuesCount = results.filter(r => (r.result as LlmResult).other_info?.ocr_issue_detected).length;
+  // Needs attention (confidence < 75%)
+  const needsAttentionCount = results.filter(r => (r.result as LlmResult).confidence_score < 75).length;
+
+  // Top performers
+  const sortedByMarks = [...results].sort((a, b) => (b.result as LlmResult).total_marks - (a.result as LlmResult).total_marks);
+  const topPerformers = sortedByMarks.slice(0, 3);
+
+  // Common Strengths
+  const strengthCounts: Record<string, number> = {};
+  results.forEach(r => {
+    const strengths = (r.result as LlmResult).other_info?.strengths || [];
+    strengths.forEach(s => {
+      const clean = s.trim();
+      const match = Array.from(KNOWN_STRENGTHS).find(k => k.toLowerCase() === clean.toLowerCase());
+      if (match) {
+        strengthCounts[match] = (strengthCounts[match] || 0) + 1;
+      }
+    });
+  });
+  const commonStrengths = Object.entries(strengthCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+  // Common Weaknesses
+  const weaknessCounts: Record<string, number> = {};
+  results.forEach(r => {
+    const weaknesses = (r.result as LlmResult).other_info?.weaknesses || [];
+    weaknesses.forEach(w => {
+      const clean = w.trim();
+      const match = Array.from(KNOWN_WEAKNESSES).find(k => k.toLowerCase() === clean.toLowerCase());
+      if (match) {
+        weaknessCounts[match] = (weaknessCounts[match] || 0) + 1;
+      }
+    });
+  });
+  const commonWeaknesses = Object.entries(weaknessCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+  let filtered = searchQuery.trim()
+    ? results.filter((r) => r.student_name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : [...results];
+
+  filtered.sort((a, b) => {
+    if (sortBy === 'name') return a.student_name.localeCompare(b.student_name);
+    const marksA = (a.result as LlmResult).total_marks;
+    const marksB = (b.result as LlmResult).total_marks;
+    return sortBy === 'marks_desc' ? marksB - marksA : marksA - marksB;
+  });
+
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="space-y-6 relative">
+      {/* Top Stats */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard icon={Users} label="Total Students" value={results.length} tone="sky" />
         <StatCard icon={Award} label="Average Marks" value={avg.toFixed(1)} tone="emerald" />
-        <StatCard icon={TrendingUp} label="Highest" value={highest} tone="amber" />
-        <StatCard icon={ShieldCheck} label="Avg Confidence" value={`${avgConf.toFixed(0)}%`} tone="slate" sub="AI grading confidence" />
+        <StatCard icon={ShieldCheck} label="Avg Confidence" value={`${avgConf.toFixed(0)}%`} tone="slate" />
+        <StatCard icon={AlertTriangle} label="Needs Attention" value={needsAttentionCount} tone="amber" sub="Confidence < 75%" />
+        <StatCard icon={FileText} label="OCR Issues" value={ocrIssuesCount} tone="rose" />
       </div>
 
-      <div className="space-y-4">
-        <div className="flex items-center gap-3 px-1">
-          <div className="h-1.5 w-1.5 rounded-full bg-[#0f172a]" />
-          <span className="text-[11px] font-black uppercase tracking-widest text-[#0f172a]">Individual Reports</span>
-          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-500">{results.length}</span>
+      <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
+        {/* Main Left Column */}
+        <div className="space-y-6">
+          {/* Table */}
+          <div className="rounded-[2rem] border border-white/75 bg-white/80 shadow-[0_20px_60px_rgba(148,163,184,0.1)] overflow-hidden h-fit">
+            <div className="px-8 pt-6 pb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="h-1.5 w-1.5 rounded-full bg-[#0f172a]" />
+                <span className="text-[11px] font-black uppercase tracking-widest text-[#0f172a]">Student Performance</span>
+              </div>
+              <div className="flex items-center gap-3">
+                {/* Actions */}
+                <div className="flex items-center gap-2 mr-2">
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 rounded-lg bg-[#0f172a] px-3.5 py-2 text-[12px] font-bold text-white transition hover:bg-slate-800"
+                  >
+                    <BrainCircuit className="h-3.5 w-3.5" />
+                    Re-evaluate All
+                  </button>
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-[12px] font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                  >
+                    <ScanSearch className="h-3.5 w-3.5" />
+                    Cheat Detection
+                  </button>
+                </div>
+
+                {/* Sort */}
+                <div className="relative">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="appearance-none rounded-lg border border-slate-200 bg-slate-50 py-2 pl-3 pr-8 text-[12px] font-medium text-slate-800 outline-none transition focus:border-slate-300 focus:bg-white cursor-pointer"
+                  >
+                    <option value="marks_desc">Highest Marks</option>
+                    <option value="marks_asc">Lowest Marks</option>
+                    <option value="name">Name (A-Z)</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by name..."
+                    className="w-[200px] rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-[12px] font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-300 focus:bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="bg-slate-50/50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <th className="px-8 py-4">#</th>
+                    <th className="px-4 py-4">Student Name</th>
+                    <th className="px-4 py-4 text-center">Total Marks</th>
+                    <th className="px-4 py-4 text-center">AI Confidence</th>
+                    <th className="px-4 py-4 text-center">OCR Issue</th>
+                    <th className="px-8 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((r, i) => {
+                    const res = r.result as LlmResult;
+                    const hasOcrIssue = res.other_info?.ocr_issue_detected;
+                    
+                    let perfLabel = 'Average';
+                    let perfTone = 'bg-amber-50 text-amber-700 border-amber-200/50';
+                    if (res.confidence_score >= 85) { perfLabel = 'Excellent'; perfTone = 'bg-emerald-50 text-emerald-700 border-emerald-200/50'; }
+                    else if (res.confidence_score >= 70) { perfLabel = 'Good'; perfTone = 'bg-sky-50 text-sky-700 border-sky-200/50'; }
+                    else if (res.confidence_score < 50) { perfLabel = 'Poor'; perfTone = 'bg-rose-50 text-rose-700 border-rose-200/50'; }
+
+                    return (
+                      <tr key={r.student_name + i} className="border-b border-slate-50 transition hover:bg-slate-50/80">
+                        <td className="px-8 py-4 text-xs font-bold text-slate-400">{i + 1}</td>
+                        <td className="px-4 py-4 font-semibold text-slate-900">{r.student_name}</td>
+                        <td className="px-4 py-4 text-center font-extrabold text-slate-900">{res.total_marks}</td>
+                        <td className="px-4 py-4 text-center">
+                          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${perfTone}`}>
+                            {res.confidence_score}% - {perfLabel}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          {hasOcrIssue ? (
+                            <span className="inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600">Yes</span>
+                          ) : (
+                            <span className="inline-flex rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-500">No</span>
+                          )}
+                        </td>
+                        <td className="px-8 py-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedStudent(r)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-[#0f172a] hover:text-white"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-8 py-16 text-center text-sm font-medium text-slate-500">
+                        No results found matching "{searchQuery}"
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-        {results.map((r, i) => (
-          <LlmStudentCard key={r.student_name + i} result={r} index={i} />
-        ))}
+
+        {/* Right Sidebar Widgets */}
+        <div className="space-y-6">
+          {/* Top Performers */}
+          <div className="rounded-[2rem] border border-white/75 bg-white/80 p-6 shadow-[0_20px_60px_rgba(148,163,184,0.1)]">
+            <div className="mb-5 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-[#0f172a]">
+              <Award className="h-3.5 w-3.5" /> Top Performers
+            </div>
+            <div className="space-y-4">
+              {topPerformers.map((r, i) => {
+                const res = r.result as LlmResult;
+                return (
+                  <div key={r.student_name + i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-500">
+                        {i + 1}
+                      </div>
+                      <span className="text-[13px] font-semibold text-slate-800">{r.student_name}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-[13px] font-bold text-slate-900">
+                      <span>{res.total_marks}</span>
+                    </div>
+                  </div>
+                );
+              })}
+              {topPerformers.length === 0 && <div className="text-[12px] text-slate-500">No data available.</div>}
+            </div>
+          </div>
+
+          {/* Common Strengths */}
+          <div className="rounded-[2rem] border border-white/75 bg-white/80 p-6 shadow-[0_20px_60px_rgba(148,163,184,0.1)]">
+            <div className="mb-5 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-emerald-600">
+              <Zap className="h-3.5 w-3.5" /> Common Strengths
+            </div>
+            {commonStrengths.length > 0 ? (
+              <div className="space-y-4">
+                {commonStrengths.map(([strength, count], i) => {
+                  const percentage = Math.round((count / results.length) * 100);
+                  return (
+                    <div key={strength + i}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[12px] font-semibold text-slate-700">{strength}</span>
+                        <span className="text-[11px] font-bold text-slate-500">{percentage}%</span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-full rounded-full bg-emerald-400" style={{ width: `${percentage}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-[12px] text-slate-500">No common strengths identified.</div>
+            )}
+          </div>
+
+          {/* Common Weaknesses */}
+          <div className="rounded-[2rem] border border-white/75 bg-white/80 p-6 shadow-[0_20px_60px_rgba(148,163,184,0.1)]">
+            <div className="mb-5 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-rose-600">
+              <Target className="h-3.5 w-3.5" /> Common Weaknesses
+            </div>
+            {commonWeaknesses.length > 0 ? (
+              <div className="space-y-4">
+                {commonWeaknesses.map(([weakness, count], i) => {
+                  const percentage = Math.round((count / results.length) * 100);
+                  return (
+                    <div key={weakness + i}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[12px] font-semibold text-slate-700">{weakness}</span>
+                        <span className="text-[11px] font-bold text-slate-500">{percentage}%</span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-full rounded-full bg-rose-400" style={{ width: `${percentage}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-[12px] text-slate-500">No common weaknesses identified.</div>
+            )}
+          </div>
+          
+
+        </div>
       </div>
+
+      {/* Slide-out Drawer for Student Details */}
+      {selectedStudent && (
+        <div className="fixed inset-0 z-[100] flex justify-end">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm animate-fade-in" 
+            onClick={() => setSelectedStudent(null)}
+          />
+          
+          {/* Drawer Panel */}
+          <div className="relative w-full max-w-2xl bg-white shadow-2xl animate-slide-in-right overflow-y-auto flex flex-col h-full">
+            {/* Header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/80 px-8 py-6 backdrop-blur-xl">
+              <div>
+                <h2 className="text-2xl font-extrabold text-slate-900">{selectedStudent.student_name}</h2>
+                <div className="mt-1 flex items-center gap-3">
+                  <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Detailed Report</span>
+                  {(selectedStudent.result as LlmResult).other_info?.ocr_issue_detected && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[9px] font-bold text-amber-700">
+                      <AlertTriangle className="h-2.5 w-2.5" /> OCR Issue
+                    </span>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedStudent(null)}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 p-8 space-y-8">
+              {/* Quick Stats */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Marks</div>
+                  <div className="mt-1 text-3xl font-extrabold text-slate-900">{(selectedStudent.result as LlmResult).total_marks}</div>
+                </div>
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-emerald-600">AI Confidence</div>
+                  <div className="mt-1 text-3xl font-extrabold text-emerald-700">{(selectedStudent.result as LlmResult).confidence_score}%</div>
+                </div>
+              </div>
+
+              {/* Evaluation Note */}
+              {(selectedStudent.result as LlmResult).evaluation_note && (
+                <div className="rounded-3xl bg-[#eef2fc] p-6">
+                  <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-600">
+                    <MessageSquare className="h-3.5 w-3.5" /> AI Evaluation Note
+                  </div>
+                  <p className="text-[14px] leading-relaxed text-slate-700">
+                    {(selectedStudent.result as LlmResult).evaluation_note}
+                  </p>
+                </div>
+              )}
+
+              {/* Question Breakdown */}
+              {Object.keys((selectedStudent.result as LlmResult).marks || {}).length > 0 && (
+                <div>
+                  <div className="mb-4 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-[#0f172a]">
+                    <Target className="h-3.5 w-3.5" /> Question-wise Breakdown
+                  </div>
+                  <div className="rounded-2xl border border-slate-100 overflow-hidden">
+                    <table className="w-full text-sm text-left">
+                      <thead>
+                        <tr className="bg-slate-50 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          <th className="px-5 py-3">Question</th>
+                          <th className="px-5 py-3 text-center">Marks</th>
+                          <th className="px-5 py-3">Feedback</th>
+                        </tr>
+                      </thead>
+                        <tbody>
+                        {Object.keys((selectedStudent.result as LlmResult).marks || {}).map((q) => (
+                          <tr key={q} className="border-t border-slate-50">
+                            <td className="px-5 py-4 font-semibold text-slate-800">{q}</td>
+                            <td className="px-5 py-4 text-center">
+                              <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-xs font-bold text-white shadow-sm">
+                                {(selectedStudent.result as LlmResult).marks[q]}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4 text-[13px] leading-relaxed text-slate-600">
+                              {(selectedStudent.result as LlmResult).question_feedback?.[q] || '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Strengths & Weaknesses */}
+              <div className="space-y-4">
+                {((selectedStudent.result as LlmResult).other_info?.strengths?.length ?? 0) > 0 && (
+                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-6">
+                    <div className="mb-4 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-emerald-700">
+                      <Zap className="h-3.5 w-3.5" /> Strengths
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {(selectedStudent.result as LlmResult).other_info?.strengths?.map((s) => (
+                        <span key={s} className="rounded-full bg-emerald-100/80 border border-emerald-200/60 px-4 py-2 text-[12px] font-bold text-emerald-800">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {((selectedStudent.result as LlmResult).other_info?.weaknesses?.length ?? 0) > 0 && (
+                  <div className="rounded-2xl border border-rose-100 bg-rose-50/50 p-6">
+                    <div className="mb-4 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-rose-700">
+                      <AlertTriangle className="h-3.5 w-3.5" /> Areas for Improvement
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {(selectedStudent.result as LlmResult).other_info?.weaknesses?.map((w) => (
+                        <span key={w} className="rounded-full bg-rose-100/80 border border-rose-200/60 px-4 py-2 text-[12px] font-bold text-rose-800">{w}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Footer */}
+            <div className="sticky bottom-0 border-t border-slate-100 bg-slate-50 px-8 py-4 flex justify-end gap-3">
+               <button
+                 type="button"
+                 className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+               >
+                 Export PDF
+               </button>
+               <button
+                 type="button"
+                 onClick={() => setSelectedStudent(null)}
+                 className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800"
+               >
+                 Close Report
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

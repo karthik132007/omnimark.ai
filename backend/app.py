@@ -2,7 +2,7 @@ import json
 import os
 import uuid
 from datetime import datetime, timezone
-
+from Engine.Dashbord_data.eda import get_teacher_stats, get_session_stats
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from Engine.cheat_detection.main import check_cheat
@@ -38,10 +38,24 @@ def health_check():
 UPLOAD_FOLDER = "./uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+@app.get("/dashboard/teacher_stats")
+def dashboard_teacher_stats(teacher_email: str):
+    stats = get_teacher_stats(teacher_email)
+    if isinstance(stats, dict):
+        return stats
+    return stats.fillna(0).to_dict()
+
+@app.get("/session/{session_id}/stats")
+def dashboard_session_stats(session_id: str):
+    stats = get_session_stats(session_id)
+    if isinstance(stats, dict):
+        return stats
+    return stats.fillna(0).to_dict()
 
 @app.post("/session/create")
 def create_session(
     name: str = Form(...),
+    teacher_email: str = Form(...),
     correction_mode: str = Form("NLP"),
     preferences_json: str = Form(...),
     custom_prompt: str = Form(""),
@@ -75,6 +89,7 @@ def create_session(
             "session_id": session_id,
             "status": "created",
             "name": name,
+            "teacher_email": teacher_email,
             "correction_mode": correction_mode,
             "preferences": preferences.model_dump(),
             "teacher_model_answer": teacher_model_answer_text,
