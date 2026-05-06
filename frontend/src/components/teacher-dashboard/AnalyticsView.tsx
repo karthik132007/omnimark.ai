@@ -4,8 +4,6 @@ import {
   BrainCircuit,
   CheckCircle2,
   ChevronDown,
-  ChevronUp,
-  Clock3,
   FileText,
   Loader2,
   ScanSearch,
@@ -22,20 +20,17 @@ import {
   MessageSquare,
   Eye,
   X,
-  PieChart,
-  Activity,
 } from 'lucide-react';
 import type { TeacherSession } from '../../types/teacherDashboard';
-import type { SessionResult, NlpResult, LlmResult } from '../../types/teacherDashboard';
-import { getSessionResults } from '../../lib/teacherDashboardApi';
+import type { SessionResult, NlpResult, LlmResult, CheatDetectionReport } from '../../types/teacherDashboard';
+import { getCheatReport, getSessionResults, triggerCheatDetection } from '../../lib/teacherDashboardApi';
 
 interface AnalyticsViewProps {
   selectedSession: TeacherSession | null;
   isProcessing: boolean;
 }
 
-const isNlpResult = (result: NlpResult | LlmResult): result is NlpResult =>
-  'similarity' in result && 'keyword_score' in result;
+
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
@@ -72,7 +67,15 @@ const StatCard = ({ icon: Icon, label, value, sub, tone = 'slate' }: {
 };
 
 /* ═══════════════════ NLP Table View ═══════════════════ */
-const NlpAnalytics = ({ results, maxMarks }: { results: SessionResult[]; maxMarks: number }) => {
+const NlpAnalytics = ({
+  results,
+  maxMarks,
+  onRunCheatDetection,
+}: {
+  results: SessionResult[];
+  maxMarks: number;
+  onRunCheatDetection: () => void;
+}) => {
   const [searchQuery, setSearchQuery] = useState('');
   const scores = results.map((r) => (r.result as NlpResult).marks);
   const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
@@ -111,7 +114,7 @@ const NlpAnalytics = ({ results, maxMarks }: { results: SessionResult[]; maxMark
             </button>
             <button
               type="button"
-              onClick={() => {}}
+              onClick={onRunCheatDetection}
               className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-[12px] font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
             >
               <ScanSearch className="h-3.5 w-3.5" />
@@ -185,7 +188,7 @@ const NlpAnalytics = ({ results, maxMarks }: { results: SessionResult[]; maxMark
 };
 
 /* ═══════════════════ LLM Dashboard View ═══════════════════ */
-const LlmAnalytics = ({ results }: { results: SessionResult[] }) => {
+const LlmAnalytics = ({ results, onRunCheatDetection }: { results: SessionResult[]; onRunCheatDetection: () => void }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<SessionResult | null>(null);
   const [sortBy, setSortBy] = useState<'name' | 'marks_desc' | 'marks_asc'>('marks_desc');
@@ -194,9 +197,7 @@ const LlmAnalytics = ({ results }: { results: SessionResult[] }) => {
   const confidences = results.map((r) => (r.result as LlmResult).confidence_score);
   const avg = totals.length ? totals.reduce((a, b) => a + b, 0) / totals.length : 0;
   const avgConf = confidences.length ? confidences.reduce((a, b) => a + b, 0) / confidences.length : 0;
-  const highest = totals.length ? Math.max(...totals) : 0;
-
-  // Derive OCR issues count
+  // Needs attention (confidence < 75%)
   const ocrIssuesCount = results.filter(r => (r.result as LlmResult).other_info?.ocr_issue_detected).length;
   // Needs attention (confidence < 75%)
   const needsAttentionCount = results.filter(r => (r.result as LlmResult).confidence_score < 75).length;
@@ -277,6 +278,7 @@ const LlmAnalytics = ({ results }: { results: SessionResult[] }) => {
                   </button>
                   <button
                     type="button"
+                    onClick={onRunCheatDetection}
                     className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-[12px] font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
                   >
                     <ScanSearch className="h-3.5 w-3.5" />
@@ -689,6 +691,10 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
   const [results, setResults] = useState<SessionResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [cheatReport, setCheatReport] = useState<CheatDetectionReport | null>(null);
+  const [cheatStatus, setCheatStatus] = useState('idle');
+  const [isRunningCheat, setIsRunningCheat] = useState(false);
+  const [cheatError, setCheatError] = useState('');
 
   const isProcessed = selectedSession?.status === 'processed';
   const isLlm = selectedSession?.correction_mode === 'LLM';
@@ -697,6 +703,8 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
   useEffect(() => {
     if (!isProcessed || !selectedSession?.session_id) {
       setResults([]);
+      setCheatReport(null);
+      setCheatStatus('idle');
       return;
     }
 
@@ -704,8 +712,14 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
       setIsLoading(true);
       setError('');
       try {
-        const data = await getSessionResults(selectedSession.session_id);
+        const [data, cheat] = await Promise.all([
+          getSessionResults(selectedSession.session_id),
+          getCheatReport(selectedSession.session_id),
+        ]);
         setResults(data);
+        setCheatReport(cheat.report);
+        setCheatStatus(cheat.status || 'idle');
+        setCheatError('');
       } catch {
         setError('Failed to load evaluation results.');
       } finally {
@@ -715,6 +729,43 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
 
     void fetchResults();
   }, [isProcessed, selectedSession?.session_id]);
+
+  useEffect(() => {
+    if (!selectedSession?.session_id || !isProcessed) {
+      return;
+    }
+    if (cheatStatus !== 'running') {
+      return;
+    }
+
+    const pollId = window.setInterval(async () => {
+      try {
+        const cheat = await getCheatReport(selectedSession.session_id);
+        setCheatReport(cheat.report);
+        setCheatStatus(cheat.status || 'idle');
+      } catch {
+        // Keep previous state and retry.
+      }
+    }, 4000);
+
+    return () => window.clearInterval(pollId);
+  }, [cheatStatus, isProcessed, selectedSession?.session_id]);
+
+  const handleRunCheatDetection = async () => {
+    if (!selectedSession?.session_id) {
+      return;
+    }
+    setIsRunningCheat(true);
+    setCheatError('');
+    try {
+      await triggerCheatDetection(selectedSession.session_id);
+      setCheatStatus('running');
+    } catch {
+      setCheatError('Failed to start cheat detection. Please try again.');
+    } finally {
+      setIsRunningCheat(false);
+    }
+  };
 
   /* Still processing → show progress */
   if (!isProcessed) {
@@ -751,15 +802,69 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
         </p>
       </div>
 
+      <div className="mb-6 rounded-[1.6rem] border border-white/75 bg-white/80 p-5 shadow-[0_16px_30px_rgba(148,163,184,0.08)]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-[11px] font-black uppercase tracking-widest text-[#0f172a]">Cheat Detection</div>
+            <div className="mt-1 text-sm font-semibold text-slate-600">
+              {cheatStatus === 'running' ? 'Scanning pair-wise similarities...' : 'Multi-signal similarity check across the full class.'}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleRunCheatDetection}
+            disabled={isRunningCheat || cheatStatus === 'running'}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-[12px] font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isRunningCheat || cheatStatus === 'running' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />}
+            {cheatStatus === 'running' ? 'Running...' : 'Run Cheat Detection'}
+          </button>
+        </div>
+
+        {cheatError ? (
+          <div className="mt-3 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">{cheatError}</div>
+        ) : null}
+
+        {cheatReport ? (
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl bg-slate-50 px-4 py-3">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Flagged Pairs</div>
+              <div className="mt-1 text-xl font-extrabold text-slate-900">{cheatReport.summary.pairs_flagged}</div>
+            </div>
+            <div className="rounded-xl bg-slate-50 px-4 py-3">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Students Flagged</div>
+              <div className="mt-1 text-xl font-extrabold text-slate-900">{cheatReport.summary.students_flagged}</div>
+            </div>
+            <div className="rounded-xl bg-slate-50 px-4 py-3">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Highest Pair Score</div>
+              <div className="mt-1 text-xl font-extrabold text-slate-900">{Math.round(cheatReport.summary.highest_pair_score * 100)}%</div>
+            </div>
+          </div>
+        ) : null}
+
+        {cheatReport?.flagged_pairs?.length ? (
+          <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50/70 px-4 py-3">
+            <div className="text-[11px] font-black uppercase tracking-widest text-amber-700">Top Suspicious Pairs</div>
+            <div className="mt-2 space-y-1">
+              {cheatReport.flagged_pairs.slice(0, 3).map((pair) => (
+                <div key={`${pair.student_1}-${pair.student_2}`} className="text-xs font-semibold text-amber-800">
+                  {pair.student_1} vs {pair.student_2} - {Math.round(pair.score * 100)}% ({pair.risk_level})
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
       {results.length === 0 ? (
         <div className="rounded-[2rem] border border-dashed border-slate-200 bg-white/70 px-8 py-16 text-center">
           <BarChart3 className="mx-auto h-10 w-10 text-slate-300" />
           <div className="mt-4 text-sm font-semibold text-slate-500">No results found for this session.</div>
         </div>
       ) : isLlm ? (
-        <LlmAnalytics results={results} />
+        <LlmAnalytics results={results} onRunCheatDetection={handleRunCheatDetection} />
       ) : (
-        <NlpAnalytics results={results} maxMarks={maxMarks} />
+        <NlpAnalytics results={results} maxMarks={maxMarks} onRunCheatDetection={handleRunCheatDetection} />
       )}
     </div>
   );

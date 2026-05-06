@@ -24,15 +24,24 @@ def grade_via_llm(prompt, provider="api", model="gpt-4o"):
 def explain_stats(stats):
     response = client.chat.completions.create(
         model="gpt-4o",
+        response_format={ "type": "json_object" },
         messages=[
             {"role": "system", "content": """
-             You are student teacher relation expert, you were give stats of a class,explain the teacher performance of his class.
-             out a detailed report on the teacher's performance based on the provided class statistics. Analyze the data to identify strengths and areas for improvement in the teacher's approach, engagement, and effectiveness. Provide insights into how the teacher can enhance their teaching methods to better support student learning and overall class performance.
-                "
-             output in a clear json format only no need to explain the output, just give the json response.
-             """},
-             {"role": "user", "content": "Here are the stats of the class:"},
-             {"role": "user", "content": stats}        ]
+You are Omi, an advanced AI assistant created by OmniMark AI to help teachers. 
+You are a student-teacher relation expert. You will be given stats of a class.
+Analyze the data to identify strengths and areas for improvement in the teacher's approach, engagement, and effectiveness.
+Provide insights into how the teacher can enhance their teaching methods to better support student learning and overall class performance.
+
+You MUST output your response in valid JSON format with the following keys:
+- "greeting": A friendly, encouraging greeting as Omi.
+- "overview": A brief summary of the overall class performance.
+- "strengths": A list of strings highlighting strong areas.
+- "areas_for_improvement": A list of strings highlighting weaknesses or gaps.
+- "action_plan": A list of actionable steps for the teacher.
+
+Do not include markdown blocks or any other text outside the JSON object.
+"""},
+             {"role": "user", "content": f"Here are the stats of the class:\n{stats}"}
+        ]
     )
     return response.choices[0].message.content
-    

@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  BrainCircuit,
   ChevronDown,
   ChevronRight,
   CheckCircle2,
@@ -10,7 +11,7 @@ import {
   ScanSearch,
   Upload,
   Trash2,
-  Ellipsis,
+  Sparkles,
 } from 'lucide-react';
 import { useState } from 'react';
 import type { DashboardView, TeacherSessionSummary } from '../../types/teacherDashboard';
@@ -26,6 +27,7 @@ interface DashboardSidebarProps {
   onDeleteSession: (sessionId: string) => void;
   onSetActiveView: (view: DashboardView) => void;
   onToggleSessions: () => void;
+  onOpenQcp: () => void;
   selectedSessionId: string | null;
   sessions: TeacherSessionSummary[];
 }
@@ -67,6 +69,7 @@ export const DashboardSidebar = ({
   onDeleteSession,
   onSetActiveView,
   onToggleSessions,
+  onOpenQcp,
   selectedSessionId,
   sessions,
 }: DashboardSidebarProps) => {
@@ -86,6 +89,49 @@ export const DashboardSidebar = ({
           <div className="font-display text-[15px] font-semibold tracking-[-0.03em] text-white/95">OmniMark AI</div>
         </div>
       </div>
+
+      {/* ─── Dashboard Button ─── */}
+      <button
+        type="button"
+        onClick={() => onSetActiveView('dashboard')}
+        className={`mx-1 mb-2 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-medium transition ${
+          activeView === 'dashboard'
+            ? 'bg-white/[0.1] text-white'
+            : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'
+        }`}
+      >
+        <LayoutDashboard className="h-4 w-4" />
+        Dashboard
+      </button>
+
+      {/* ─── QCP Button ─── */}
+      <button
+        type="button"
+        onClick={onOpenQcp}
+        className={`mx-1 mb-2 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-medium transition ${
+          activeView === 'qcp'
+            ? 'bg-white/[0.1] text-white'
+            : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'
+        }`}
+      >
+        <Sparkles className="h-4 w-4 text-emerald-400" />
+        Question Paper Creator
+      </button>
+
+      {/* ─── Omi Assistant Button ─── */}
+      <button
+        type="button"
+        onClick={() => onSetActiveView('omi')}
+        className={`mx-1 mb-4 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-medium transition relative overflow-hidden group ${
+          activeView === 'omi'
+            ? 'bg-white/[0.1] text-white shadow-[0_0_15px_rgba(99,102,241,0.5)] border border-indigo-500/50'
+            : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'
+        }`}
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        <BrainCircuit className={`h-4 w-4 relative z-10 ${activeView === 'omi' ? 'text-indigo-400' : 'text-indigo-500/70 group-hover:text-indigo-400'}`} />
+        <span className="relative z-10">Omi Assistant</span>
+      </button>
 
       {/* ─── New Session Button ─── */}
       <button
@@ -166,26 +212,12 @@ export const DashboardSidebar = ({
 
       {/* ─── Navigation ─── */}
       <div className="mt-auto space-y-1 border-t border-white/[0.06] pt-3">
-        <button
-          type="button"
-          onClick={() => onSetActiveView('dashboard')}
-          className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-medium transition ${
-            activeView === 'dashboard'
-              ? 'bg-white/[0.1] text-white'
-              : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'
-          }`}
-        >
-          <LayoutDashboard className="h-4 w-4" />
-          Dashboard
-        </button>
-
         {/* Workflow Steps */}
         {showWorkflow && (
           <div className="space-y-0.5">
             {workflowItems.map((item, index) => {
               const isComplete = activeStep > index;
               const isCurrent = activeStep === index;
-              const Icon = item.icon;
 
               return (
                 <button

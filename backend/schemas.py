@@ -35,3 +35,12 @@ class SessionDetail(BaseModel):
     total_files: Optional[int] = None
     processed: Optional[int] = None
     custom_prompt: Optional[str] = None
+
+class QuestionParerPrefrences(BaseModel):
+    difficulty:str
+    max_marks:int
+    no_of_ques:int
+    course:str
+    choice_aval:bool
+    choice_type:str
+    custom_prompt:str

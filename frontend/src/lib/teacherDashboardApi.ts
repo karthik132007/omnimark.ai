@@ -5,6 +5,10 @@ import type {
   SessionStatusPayload,
   TeacherSession,
   TeacherSessionSummary,
+  QCPFormState,
+  OmiAnalysisResponse,
+  TeacherDashboardSummary,
+  CheatDetectionResponse,
 } from '../types/teacherDashboard';
 
 interface CreateSessionResponse {
@@ -13,6 +17,7 @@ interface CreateSessionResponse {
 
 interface UploadSessionZipOptions {
   file: File;
+  teacherEmail?: string;
   onProgress?: (progress: number) => void;
 }
 
@@ -26,20 +31,30 @@ const buildPreferencesPayload = (form: EvaluationSetupFormState) => ({
   llm_model: form.llmModel,
 });
 
-export const listTeacherSessions = async () => {
-  const response = await api.get<TeacherSessionSummary[]>('/sessions');
+const normalizedEmail = (email: string) => email.trim().toLowerCase();
+const resolveTeacherEmail = (teacherEmail?: string) => normalizedEmail(teacherEmail ?? localStorage.getItem('user_email') ?? '');
+
+export const listTeacherSessions = async (teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
+  const response = await api.get<TeacherSessionSummary[]>('/sessions', {
+    params: { teacher_email: email },
+  });
   return response.data;
 };
 
-export const getTeacherSession = async (sessionId: string) => {
-  const response = await api.get<TeacherSession>(`/session/${sessionId}`);
+export const getTeacherSession = async (sessionId: string, teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
+  const response = await api.get<TeacherSession>(`/session/${sessionId}`, {
+    params: { teacher_email: email },
+  });
   return response.data;
 };
 
-export const createTeacherSession = async (form: EvaluationSetupFormState) => {
+export const createTeacherSession = async (form: EvaluationSetupFormState, teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
   const payload = new FormData();
   payload.append('name', form.name);
-  payload.append('teacher_email', 'teacher@example.com');
+  payload.append('teacher_email', email);
   const correctionMode = form.examType === 'Technical' ? 'LLM' : 'NLP';
   payload.append('correction_mode', correctionMode);
   payload.append('preferences_json', JSON.stringify(buildPreferencesPayload(form)));
@@ -57,8 +72,10 @@ export const createTeacherSession = async (form: EvaluationSetupFormState) => {
 };
 
 export const uploadTeacherSessionZip = async (sessionId: string, options: UploadSessionZipOptions) => {
+  const email = resolveTeacherEmail(options.teacherEmail);
   const payload = new FormData();
   payload.append('file', options.file, options.file.name);
+  payload.append('teacher_email', email);
 
   const response = await api.post<{ message: string }>(`/session/${sessionId}/upload_zip`, payload, {
     headers: {
@@ -77,22 +94,93 @@ export const uploadTeacherSessionZip = async (sessionId: string, options: Upload
   return response.data;
 };
 
-export const processTeacherSession = async (sessionId: string) => {
-  const response = await api.post<{ message: string }>(`/session/${sessionId}/process`);
+export const processTeacherSession = async (sessionId: string, teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
+  const payload = new FormData();
+  payload.append('teacher_email', email);
+  const response = await api.post<{ message: string }>(`/session/${sessionId}/process`, payload);
   return response.data;
 };
 
-export const getTeacherSessionStatus = async (sessionId: string) => {
-  const response = await api.get<SessionStatusPayload>(`/session/${sessionId}/status`);
+export const getTeacherSessionStatus = async (sessionId: string, teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
+  const response = await api.get<SessionStatusPayload>(`/session/${sessionId}/status`, {
+    params: { teacher_email: email },
+  });
   return response.data;
 };
 
-export const deleteTeacherSession = async (sessionId: string) => {
-  const response = await api.delete<{ message: string }>(`/session/${sessionId}`);
+export const deleteTeacherSession = async (sessionId: string, teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
+  const response = await api.delete<{ message: string }>(`/session/${sessionId}`, {
+    params: { teacher_email: email },
+  });
   return response.data;
 };
 
-export const getSessionResults = async (sessionId: string) => {
-  const response = await api.get<SessionResult[]>(`/session/${sessionId}/results`);
+export const getSessionResults = async (sessionId: string, teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
+  const response = await api.get<SessionResult[]>(`/session/${sessionId}/results`, {
+    params: { teacher_email: email },
+  });
+  return response.data;
+};
+
+export const generateQuestionPaper = async (form: QCPFormState) => {
+  const payload = new FormData();
+  
+  const preferences = {
+    difficulty: form.difficulty,
+    max_marks: form.max_marks,
+    no_of_ques: form.no_of_ques,
+    course: form.course,
+    choice_aval: form.choice_aval,
+    choice_type: form.choice_type,
+    custom_prompt: form.custom_prompt,
+  };
+  
+  payload.append('preferences_json', JSON.stringify(preferences));
+  if (form.relevent_docs) {
+    payload.append('relevent_docs', form.relevent_docs as Blob, form.relevent_docs.name);
+  }
+
+  const response = await api.post<string>('/QCP', payload, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+
+  return response.data;
+};
+
+export const getOmiAnalysis = async (teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
+  const response = await api.get<OmiAnalysisResponse>('/omi/analyze', {
+    params: { teacher_email: email },
+  });
+  return response.data;
+};
+
+export const getTeacherDashboardSummary = async (teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
+  const response = await api.get<TeacherDashboardSummary>('/dashboard/teacher_summary', {
+    params: { teacher_email: email },
+  });
+  return response.data;
+};
+
+export const triggerCheatDetection = async (sessionId: string, teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
+  const payload = new FormData();
+  payload.append('teacher_email', email);
+  const response = await api.post<{ message: string }>(`/session/${sessionId}/cheat_detection`, payload);
+  return response.data;
+};
+
+export const getCheatReport = async (sessionId: string, teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
+  const response = await api.get<CheatDetectionResponse>(`/session/${sessionId}/cheat_report`, {
+    params: { teacher_email: email },
+  });
   return response.data;
 };

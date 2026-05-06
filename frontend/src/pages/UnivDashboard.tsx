@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, LogOut } from 'lucide-react';
-
-const API_URL = "http://localhost:8000";
+import { api } from '../lib/api';
 
 interface TeacherRecord {
   _id: string;
@@ -22,9 +20,7 @@ export const UnivDashboard = () => {
 
   const fetchTeachers = async () => {
     try {
-      const res = await axios.get(`${API_URL}/univ/teachers`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get('/univ/teachers');
       setTeachers(res.data);
     } catch (error) {
       console.error(error);
@@ -39,9 +35,7 @@ export const UnivDashboard = () => {
 
     const loadTeachers = async () => {
       try {
-        const res = await axios.get(`${API_URL}/univ/teachers`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await api.get('/univ/teachers');
         setTeachers(res.data);
       } catch (error) {
         console.error(error);
@@ -54,9 +48,7 @@ export const UnivDashboard = () => {
   const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_URL}/univ/teachers`, { name, email, password }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.post('/univ/teachers', { name, email, password });
       setName(''); setEmail(''); setPassword('');
       void fetchTeachers();
     } catch {
@@ -67,9 +59,7 @@ export const UnivDashboard = () => {
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure?")) {
       try {
-        await axios.delete(`${API_URL}/univ/teachers/${id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await api.delete(`/univ/teachers/${id}`);
         void fetchTeachers();
       } catch {
         alert("Error deleting");
@@ -80,6 +70,7 @@ export const UnivDashboard = () => {
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
+    localStorage.removeItem('user_email');
     navigate('/');
   };
 

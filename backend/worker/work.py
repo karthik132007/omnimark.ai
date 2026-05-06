@@ -1,7 +1,9 @@
 import os
 import zipfile
+from datetime import datetime, timezone
 from backend.db import db
 from Engine.OCR.ocr import extract_text_from_pdf
+from Engine.cheat_detection.main import analyze_session_cheating
 from Engine.grade.nlp import Correct_NLP
 from Engine.grade.llm import LLM_Grade
 from PyPDF2 import PdfReader
@@ -57,6 +59,7 @@ def process_session(session_id, file_location):
                 "session_id": session_id,
                 "student_name": student_name,
                 "pdf_file": pdf,
+                "answer_text": text,
                 "result": result
             })
             
@@ -67,6 +70,7 @@ def process_session(session_id, file_location):
                 "session_id": session_id,
                 "student_name": student_name,
                 "pdf_file": pdf,
+                "answer_text": text,
                 "result": result
             })
         else:
@@ -78,15 +82,103 @@ def process_session(session_id, file_location):
             {"session_id": session_id},
             {"$inc": {"processed": 1}},
         )
-    #check cheat for all students and update results in db
-    
+    db.sessions.update_one(
+        {"session_id": session_id},
+        {"$set": {"cheat_detection_status": "running"}},
+    )
+    try:
+        check_cheat_in_session(session_id)
+        db.sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {"cheat_detection_status": "completed"}},
+        )
+    except Exception as exc:
+        db.sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {"cheat_detection_status": "failed", "cheat_detection_error": str(exc)}},
+        )
+
     db.sessions.update_one(
         {"session_id": session_id},
         {"$set": {"status": "processed"}}
         )
 
 def check_cheat_in_session(session_id):
-    pass
+    try:
+        session = db.sessions.find_one({"session_id": session_id}, {"_id": 0, "preferences": 1})
+        if not session:
+            return {"error": "Session not found"}
+
+        is_handwritten = bool(session.get("preferences", {}).get("is_handwritten", False))
+        result_rows = list(db.results.find({"session_id": session_id}))
+        if len(result_rows) < 2:
+            report = {
+                "threshold": 0.82,
+                "total_students": len(result_rows),
+                "total_pairs": 0,
+                "flagged_pairs": [],
+                "pairs": [],
+                "students": [],
+                "summary": {"students_flagged": 0, "pairs_flagged": 0, "highest_pair_score": 0},
+            }
+            db.sessions.update_one(
+                {"session_id": session_id},
+                {"$set": {"cheat_detection": report, "cheat_detection_last_run": datetime.now(timezone.utc).isoformat(), "cheat_detection_status": "completed"}},
+            )
+            return report
+
+        answers = []
+        row_ids_by_student = {}
+        for row in result_rows:
+            student_name = row.get("student_name", "Unknown")
+            answer_text = str(row.get("answer_text", "")).strip()
+
+            # Fallback support for legacy sessions where answer text was not stored.
+            if not answer_text:
+                pdf_path = row.get("pdf_file", "")
+                if pdf_path and os.path.exists(pdf_path):
+                    if is_handwritten:
+                        extracted_pages = extract_text_from_pdf(pdf_path)
+                        answer_text = " ".join(page.get("text", "") for page in extracted_pages if isinstance(page, dict))
+                    else:
+                        answer_text = get_text_from_nonOCR_pdf(pdf_path)
+
+            answers.append({"student_name": student_name, "answer_text": answer_text})
+            row_ids_by_student[student_name] = row["_id"]
+
+        report = analyze_session_cheating(answers, threshold=0.82)
+        by_student = {row["student_name"]: row for row in report.get("students", [])}
+
+        for student_name, student_report in by_student.items():
+            row_id = row_ids_by_student.get(student_name)
+            if not row_id:
+                continue
+            db.results.update_one(
+                {"_id": row_id},
+                {
+                    "$set": {
+                        "cheat_detection": {
+                            "risk_level": student_report.get("risk_level"),
+                            "risk_score": student_report.get("risk_score"),
+                            "max_pair_score": student_report.get("max_pair_score"),
+                            "flagged_pairs": student_report.get("flagged_pairs", 0),
+                            "matched_with": student_report.get("matched_with", []),
+                        }
+                    }
+                },
+            )
+
+        db.sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {"cheat_detection": report, "cheat_detection_last_run": datetime.now(timezone.utc).isoformat(), "cheat_detection_status": "completed"}},
+        )
+        return report
+    except Exception as exc:
+        db.sessions.update_one(
+            {"session_id": session_id},
+            {"$set": {"cheat_detection_status": "failed", "cheat_detection_error": str(exc)}},
+        )
+        raise
 
 def get_text_from_nonOCR_pdf(pdf_path):
     reader = PdfReader(pdf_path)

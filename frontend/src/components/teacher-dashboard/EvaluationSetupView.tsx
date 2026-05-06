@@ -12,7 +12,6 @@ import {
 import type { ChangeEvent, FormEvent } from 'react';
 import type {
   EvaluationSetupFormState,
-  ExamType,
   TeacherSession,
 } from '../../types/teacherDashboard';
 
@@ -122,7 +121,7 @@ export const EvaluationSetupView = ({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || isLocked}
+              disabled={isSubmitting || Boolean(isLocked)}
               className="flex items-center justify-center gap-3 rounded-xl bg-[#02211e] px-7 py-4 text-[13px] font-bold text-white shadow-lg transition hover:bg-[#033630] disabled:cursor-not-allowed disabled:opacity-70"
             >
               Initiate<br />Setup

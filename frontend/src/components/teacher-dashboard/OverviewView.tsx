@@ -1,21 +1,34 @@
+import { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowRight,
+  AlertTriangle,
+  ArrowUpRight,
+  Award,
   BarChart3,
   BrainCircuit,
   Clock3,
-  FileArchive,
-  LayoutDashboard,
-  PlayCircle,
+  LineChart as LineChartIcon,
   Plus,
-  Sparkles,
-  Upload,
+  UploadCloud,
 } from 'lucide-react';
-import type { TeacherSession, TeacherSessionSummary } from '../../types/teacherDashboard';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import { getTeacherDashboardSummary } from '../../lib/teacherDashboardApi';
+import type { TeacherDashboardSummary, TeacherSession, TeacherSessionSummary } from '../../types/teacherDashboard';
 
 interface OverviewViewProps {
   onCreateSession: () => void;
   onOpenUploads: () => void;
   onSelectSession: (sessionId: string) => void;
+  onOpenOmi: () => void;
   selectedSession: TeacherSession | null;
   sessions: TeacherSessionSummary[];
 }
@@ -27,191 +40,339 @@ const formatDate = (value: string) =>
     year: 'numeric',
   }).format(new Date(value));
 
+const emptySummary: TeacherDashboardSummary = {
+  metrics: {
+    total_sessions: 0,
+    processed_sessions: 0,
+    total_submissions: 0,
+    average_marks: 0,
+    highest_marks: 0,
+    lowest_marks: 0,
+  },
+  trend: [],
+  common_mistakes: [],
+  toppers: [],
+  score_distribution: [],
+  risk_bands: [],
+};
+
+const chartTooltipStyle = {
+  borderRadius: 12,
+  border: '1px solid #e2e8f0',
+  boxShadow: '0 16px 34px rgba(15,23,42,0.08)',
+};
+
 export const OverviewView = ({
   onCreateSession,
   onOpenUploads,
   onSelectSession,
+  onOpenOmi,
   selectedSession,
   sessions,
 }: OverviewViewProps) => {
-  const processedSessions = sessions.filter(s => s.status === 'processed').length;
+  const [summary, setSummary] = useState<TeacherDashboardSummary>(emptySummary);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(true);
+  const [summaryError, setSummaryError] = useState('');
+
+  const hasPerformanceData = summary.metrics.total_submissions > 0;
+  const trendData = useMemo(() => summary.trend.slice(-8), [summary.trend]);
+  const recentSessions = useMemo(() => sessions.slice(0, 6), [sessions]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadSummary = async () => {
+      try {
+        const data = await getTeacherDashboardSummary();
+        if (!mounted) {
+          return;
+        }
+        setSummary(data);
+        setSummaryError('');
+      } catch {
+        if (!mounted) {
+          return;
+        }
+        setSummary(emptySummary);
+        setSummaryError('Unable to load dashboard analytics right now.');
+      } finally {
+        if (mounted) {
+          setIsLoadingSummary(false);
+        }
+      }
+    };
+
+    void loadSummary();
+
+    return () => {
+      mounted = false;
+    };
+  }, [sessions, selectedSession?.status, selectedSession?.processed]);
+
+  useEffect(() => {
+    if (selectedSession?.status !== 'processing') {
+      return;
+    }
+
+    const interval = window.setInterval(async () => {
+      try {
+        const data = await getTeacherDashboardSummary();
+        setSummary(data);
+      } catch {
+        // Keep previous summary and retry on the next interval.
+      }
+    }, 6000);
+
+    return () => window.clearInterval(interval);
+  }, [selectedSession?.status]);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Top Header / Welcome */}
-      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between px-2">
-        <div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-            Overview
-          </h1>
-          <p className="mt-2 text-[15px] text-slate-500 max-w-xl leading-relaxed">
-            Manage your evaluation workflows, upload student scripts, and leverage AI to uncover insights about your class performance.
-          </p>
-        </div>
-      </div>
-
-      {/* Bento Grid Container */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {/* Welcome & Stats Card (Span 2) */}
-        <div className="md:col-span-2 frost-panel rounded-[2rem] border border-white/80 p-8 shadow-[0_32px_100px_rgba(15,23,42,0.08)] bg-gradient-to-br from-white to-slate-50 relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-            <LayoutDashboard className="w-32 h-32 text-slate-900" />
-          </div>
+    <div className="mx-auto max-w-7xl space-y-6 pb-8">
+      <section className="rounded-3xl border border-slate-200 bg-white px-6 py-6 shadow-sm">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 shadow-sm">
-              Teacher Workspace
-            </div>
-            <h2 className="mt-6 text-3xl font-bold tracking-tight text-slate-900">
-              Ready to evaluate?
-            </h2>
-            <p className="mt-2 text-slate-600 text-[15px] max-w-md">
-              Start a new session or pick up where you left off. The engine is primed and waiting.
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Teacher Analytics</p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Class Performance Command Center</h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-500">
+              Live scoring trends, common mistakes, risk signals, and top performers from your graded sessions.
             </p>
           </div>
-          
-          <div className="mt-8 grid grid-cols-2 gap-4">
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-5 backdrop-blur-md">
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Sessions</div>
-              <div className="mt-1 text-3xl font-black text-slate-900">{sessions.length}</div>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white/60 p-5 backdrop-blur-md">
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Processed</div>
-              <div className="mt-1 text-3xl font-black text-emerald-600">{processedSessions}</div>
-            </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onCreateSession}
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              <Plus className="h-4 w-4" />
+              New Session
+            </button>
+            <button
+              type="button"
+              onClick={onOpenUploads}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              <UploadCloud className="h-4 w-4" />
+              Upload Scripts
+            </button>
+            <button
+              type="button"
+              onClick={onOpenOmi}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              <BrainCircuit className="h-4 w-4" />
+              Omi Insights
+            </button>
           </div>
         </div>
+      </section>
 
-        {/* AI Analyze Action Card */}
-        <div className="md:col-span-1 group relative rounded-[2rem] border border-transparent bg-gradient-to-br from-indigo-500 to-purple-600 p-1 shadow-[0_20px_60px_rgba(99,102,241,0.25)] transition-all hover:-translate-y-1 hover:shadow-[0_25px_80px_rgba(99,102,241,0.35)] cursor-pointer overflow-hidden"
-             onClick={() => alert("AI Analyze Class feature is coming soon! It will analyze student track records to optimize your teaching approach.")}>
-          <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-20 mix-blend-overlay"></div>
-          <div className="relative flex h-full flex-col justify-between rounded-[1.8rem] bg-slate-900/40 p-7 backdrop-blur-xl transition-colors group-hover:bg-slate-900/30">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {[
+          ['Sessions', summary.metrics.total_sessions],
+          ['Processed', summary.metrics.processed_sessions],
+          ['Submissions', summary.metrics.total_submissions],
+          ['Average Marks', summary.metrics.average_marks],
+          ['Highest', summary.metrics.highest_marks],
+          ['Lowest', summary.metrics.lowest_marks],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
+          </div>
+        ))}
+      </section>
+
+      {summaryError ? (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+          {summaryError}
+        </section>
+      ) : null}
+
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-8">
+          <div className="mb-4 flex items-center justify-between gap-4">
             <div>
-              <div className="inline-flex items-center justify-center rounded-xl bg-white/20 p-3 backdrop-blur-md text-white">
-                <BrainCircuit className="h-6 w-6" />
-              </div>
-              <h3 className="mt-5 text-xl font-bold text-white">AI Analyze</h3>
-              <p className="mt-2 text-sm leading-relaxed text-indigo-100">
-                Deep dive into class performance. Uncover learning gaps and optimize your teaching approach.
-              </p>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Line Chart</p>
+              <h2 className="mt-1 text-xl font-semibold text-slate-900">Average Marks Trend</h2>
             </div>
-            <div className="mt-6 flex items-center gap-2 text-sm font-bold text-white">
-              Launch Intelligence <Sparkles className="h-4 w-4" />
-            </div>
+            <LineChartIcon className="h-5 w-5 text-slate-400" />
           </div>
-        </div>
+          <div className="h-80">
+            {hasPerformanceData ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendData} margin={{ top: 8, right: 12, bottom: 8, left: -12 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#64748b' }} tickLine={false} axisLine={false} />
+                  <Tooltip contentStyle={chartTooltipStyle} formatter={(value) => [value, 'Avg marks']} />
+                  <Line type="monotone" dataKey="average_marks" stroke="#0f172a" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-sm font-medium text-slate-500">
+                {isLoadingSummary ? 'Loading trend...' : 'Process a session to unlock trend analysis.'}
+              </div>
+            )}
+          </div>
+        </article>
 
-        {/* Create Session Action */}
-        <div className="md:col-span-1 interactive-surface rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md cursor-pointer flex flex-col justify-between group"
-             onClick={onCreateSession}>
-          <div>
-            <div className="inline-flex items-center justify-center rounded-xl bg-slate-100 p-3 text-slate-700 transition-colors group-hover:bg-slate-900 group-hover:text-white">
-              <Plus className="h-6 w-6" />
+        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-4">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Bar Chart</p>
+              <h2 className="mt-1 text-xl font-semibold text-slate-900">Common Mistakes</h2>
             </div>
-            <h3 className="mt-5 text-lg font-bold text-slate-900">Create Session</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-500">
-              Start a new evaluation workflow. Configure rubrics, marks, and constraints.
+            <BarChart3 className="h-5 w-5 text-slate-400" />
+          </div>
+          <div className="h-80">
+            {summary.common_mistakes.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={summary.common_mistakes} layout="vertical" margin={{ top: 8, right: 8, bottom: 8, left: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: '#64748b' }} tickLine={false} axisLine={false} />
+                  <YAxis dataKey="name" type="category" width={130} tick={{ fontSize: 11, fill: '#475569' }} tickLine={false} axisLine={false} />
+                  <Tooltip contentStyle={chartTooltipStyle} />
+                  <Bar dataKey="count" fill="#334155" radius={[0, 8, 8, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-sm font-medium text-slate-500">
+                Mistake analytics appears after grading data is available.
+              </div>
+            )}
+          </div>
+        </article>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-4">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-900">Class Toppers</h2>
+            <Award className="h-5 w-5 text-slate-400" />
+          </div>
+          <div className="space-y-2">
+            {summary.toppers.length > 0 ? (
+              summary.toppers.map((topper, index) => (
+                <div key={`${topper.student_name}-${topper.session_name}`} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900">{index + 1}. {topper.student_name}</p>
+                    <p className="truncate text-xs text-slate-500">{topper.session_name}</p>
+                  </div>
+                  <p className="text-sm font-bold text-slate-900">{topper.percentage}%</p>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+                No topper data yet.
+              </div>
+            )}
+          </div>
+        </article>
+
+        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-4">
+          <h2 className="mb-4 text-lg font-semibold text-slate-900">Score Distribution</h2>
+          <div className="h-64">
+            {summary.score_distribution.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={summary.score_distribution} margin={{ top: 6, right: 12, bottom: 0, left: -16 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="range" tick={{ fontSize: 11, fill: '#64748b' }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#64748b' }} tickLine={false} axisLine={false} />
+                  <Tooltip contentStyle={chartTooltipStyle} />
+                  <Bar dataKey="students" fill="#0f172a" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500">
+                No score distribution yet.
+              </div>
+            )}
+          </div>
+        </article>
+
+        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-4">
+          <h2 className="mb-4 text-lg font-semibold text-slate-900">Support Bands</h2>
+          <div className="space-y-2">
+            {summary.risk_bands.map((band) => (
+              <div key={band.name} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                <p className="text-sm font-medium text-slate-700">{band.name}</p>
+                <p className="rounded-full bg-slate-900 px-2.5 py-0.5 text-xs font-semibold text-white">{band.students}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 rounded-xl border border-slate-200 bg-white px-3 py-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              At-risk students
+            </div>
+            <p className="mt-2 text-2xl font-bold text-slate-900">
+              {summary.risk_bands.find((band) => band.name === 'At risk')?.students ?? 0}
             </p>
           </div>
-        </div>
+        </article>
+      </section>
 
-        {/* Active Session Focus */}
-        <div className="md:col-span-2 frost-panel rounded-[2rem] border border-white/80 p-6 shadow-sm bg-white/70">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700">
-                <PlayCircle className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-[11px] font-black uppercase tracking-widest text-slate-400">Current Focus</div>
-                <div className="text-lg font-bold text-slate-900">
-                  {selectedSession ? selectedSession.name : 'No active session'}
-                </div>
-              </div>
-            </div>
-            <div className={`rounded-full px-3 py-1 text-xs font-bold ${
-              selectedSession?.status === 'processing' ? 'bg-amber-100 text-amber-700' : 
-              selectedSession?.status === 'processed' ? 'bg-emerald-100 text-emerald-700' :
-              selectedSession ? 'bg-slate-100 text-slate-700' : 'bg-slate-100 text-slate-400'
-            }`}>
-              {selectedSession ? selectedSession.status.toUpperCase() : 'IDLE'}
-            </div>
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-900">Active Session</h2>
+            <Clock3 className="h-5 w-5 text-slate-400" />
           </div>
-
           {selectedSession ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Progress</div>
-                  <div className="text-sm font-black text-slate-900">
-                    {selectedSession.processed ?? 0} / {selectedSession.total_files ?? 0}
-                  </div>
-                </div>
-                <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200">
-                  <div 
-                    className="h-full bg-slate-900 transition-all duration-500"
-                    style={{ width: `${Math.min(100, ((selectedSession.processed ?? 0) / Math.max(1, selectedSession.total_files ?? 1)) * 100)}%` }}
-                  />
-                </div>
+            <div className="space-y-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Session</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{selectedSession.name}</p>
               </div>
-              
-              <button
-                type="button"
-                onClick={onOpenUploads}
-                className="flex items-center justify-center gap-3 rounded-2xl border-2 border-slate-900 bg-slate-900 p-4 text-sm font-bold text-white transition hover:bg-slate-800 shadow-[0_8px_20px_rgba(15,23,42,0.15)] hover:-translate-y-0.5"
-              >
-                Manage Script Uploads
-                <Upload className="h-4 w-4" />
-              </button>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Status</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{selectedSession.status}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Progress</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">
+                  {selectedSession.processed ?? 0} / {selectedSession.total_files ?? 0}
+                </p>
+              </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-white/50 px-4 py-6 text-center text-sm font-medium text-slate-500">
-              Select a session from the sidebar or create a new one to unlock workflow tools.
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-12 text-center text-sm text-slate-500">
+              Select a session to track live processing status.
             </div>
           )}
-        </div>
+        </article>
 
-        {/* Recent Sessions List */}
-        <div className="md:col-span-3 frost-panel rounded-[2rem] border border-white/80 p-6 shadow-sm bg-white/70">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-900">Recent Sessions</h3>
-            <span className="text-xs font-bold text-slate-500">{sessions.length} total</span>
+        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-7">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-900">Recent Sessions</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">{sessions.length} total</p>
           </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {sessions.length ? (
-              sessions.map((session) => (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {recentSessions.length > 0 ? (
+              recentSessions.map((session) => (
                 <button
+                  type="button"
                   key={session.session_id}
                   onClick={() => onSelectSession(session.session_id)}
-                  className="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-1 hover:border-slate-300 hover:shadow-md"
+                  className="group rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-slate-300 hover:bg-white"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="font-semibold text-slate-900 line-clamp-1 mr-2">{session.name}</div>
-                    <div className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                      session.status === 'processed' ? 'bg-emerald-100 text-emerald-700' :
-                      session.status === 'processing' ? 'bg-amber-100 text-amber-700' :
-                      'bg-slate-100 text-slate-600'
-                    }`}>
-                      {session.status}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900">{session.name}</p>
+                      <p className="mt-1 text-xs text-slate-500">{formatDate(session.created_at)}</p>
                     </div>
-                  </div>
-                  <div className="mt-4 flex items-center justify-between">
-                    <div className="text-xs font-medium text-slate-500">{formatDate(session.created_at)}</div>
-                    <ArrowRight className="h-4 w-4 text-slate-300 transition group-hover:text-slate-900 group-hover:translate-x-1" />
+                    <ArrowUpRight className="h-4 w-4 text-slate-400 transition group-hover:text-slate-700" />
                   </div>
                 </button>
               ))
             ) : (
-              <div className="col-span-full rounded-2xl border border-dashed border-slate-200 bg-white/50 px-4 py-8 text-center text-sm font-medium text-slate-500">
-                No evaluation history found. Create your first session to get started.
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-12 text-center text-sm text-slate-500 sm:col-span-2">
+                No sessions found. Create your first evaluation session.
               </div>
             )}
           </div>
-        </div>
-
-      </div>
+        </article>
+      </section>
     </div>
   );
 };

@@ -23,9 +23,12 @@ what u need to do is image 5 personas of students from topper of class to dumbes
 answer the question "What is Machine Learning" in 5 ways 
 give names also and tell what persona it is 
 and also give long answers and short answers also max 300 words min 50 words for difffrent students, because length is also a parameter
+and also give student name also 
 
-
-not able to create new session when i click
-Initiate
-Setup in front end it is returning me [object Object] in frontend and this is backend log
-INFO: 127.0.0.1:39190 - "POST /session/create HTTP/1.1" 422 Unprocessable Content
+There will be 5 Chapters
+1. Database Fundamentals & Architecture
+2. Relational Model & SQL
+3. Database Design & Normalisation
+4. Transaction Management & Concurrency
+5. Advanced DBMS & Modern Databases
+give a or b for every unit, give 20marks for each unit

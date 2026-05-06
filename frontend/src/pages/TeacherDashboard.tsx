@@ -1,13 +1,15 @@
 import { startTransition, useEffect, useState, type FormEvent } from 'react';
 import { isAxiosError } from 'axios';
 import { unzipSync } from 'fflate';
-import { ArrowRight, BarChart3, Clock3, FolderKanban, Sparkles } from 'lucide-react';
+
 import { useNavigate } from 'react-router-dom';
 import { DashboardSidebar } from '../components/teacher-dashboard/DashboardSidebar';
 import { EvaluationSetupView } from '../components/teacher-dashboard/EvaluationSetupView';
 import { OverviewView } from '../components/teacher-dashboard/OverviewView';
 import { ScriptUploadsView } from '../components/teacher-dashboard/ScriptUploadsView';
 import { AnalyticsView } from '../components/teacher-dashboard/AnalyticsView';
+import { QCPView } from '../components/teacher-dashboard/QCPView';
+import { OmiView } from '../components/teacher-dashboard/OmiView';
 import {
   createTeacherSession,
   getTeacherSession,
@@ -23,7 +25,19 @@ import type {
   TeacherSession,
   TeacherSessionSummary,
   ZipInspection,
+  QCPFormState,
 } from '../types/teacherDashboard';
+
+const defaultQCPFormState = (): QCPFormState => ({
+  difficulty: 'Medium',
+  max_marks: 100,
+  no_of_ques: 10,
+  course: '',
+  choice_aval: false,
+  choice_type: 'Internal',
+  custom_prompt: '',
+  relevent_docs: null,
+});
 
 const defaultFormState = (): EvaluationSetupFormState => ({
   name: '',
@@ -40,24 +54,7 @@ const defaultFormState = (): EvaluationSetupFormState => ({
   llmModel: 'gpt-4o',
 });
 
-const pageMeta: Record<DashboardView, { description: string; title: string }> = {
-  dashboard: {
-    title: 'Teacher Dashboard',
-    description: 'Launch new evaluation sessions and monitor active grading workflows.',
-  },
-  'evaluation-setup': {
-    title: 'Evaluation Setup',
-    description: 'Configure exam classification, scoring rules, and reference artifacts.',
-  },
-  'script-uploads': {
-    title: 'Script Uploads',
-    description: 'Upload student answer sheets in a structured ZIP package and trigger processing.',
-  },
-  analytics: {
-    title: 'Analytics',
-    description: 'Review scoring insights and reporting once the processing pipeline is complete.',
-  },
-};
+
 
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (isAxiosError(error)) {
@@ -96,17 +93,7 @@ const inspectZipFile = async (file: File) => {
   } satisfies ZipInspection;
 };
 
-const formatDate = (value?: string) => {
-  if (!value) {
-    return 'Just now';
-  }
 
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(new Date(value));
-};
 
 export const TeacherDashboard = () => {
   const navigate = useNavigate();
@@ -114,8 +101,11 @@ export const TeacherDashboard = () => {
 
   const [activeView, setActiveView] = useState<DashboardView>('dashboard');
   const [form, setForm] = useState<EvaluationSetupFormState>(defaultFormState);
+  const [qcpForm, setQcpForm] = useState<QCPFormState>(defaultQCPFormState());
+  const [qcpResult, setQcpResult] = useState<string | null>(null);
+  const [isSubmittingQcp, setIsSubmittingQcp] = useState(false);
   const [inspection, setInspection] = useState<ZipInspection | null>(null);
-  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSessionsExpanded, setIsSessionsExpanded] = useState(true);
   const [isSubmittingSetup, setIsSubmittingSetup] = useState(false);
@@ -130,7 +120,7 @@ export const TeacherDashboard = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadSuccess, setUploadSuccess] = useState('');
 
-  const meta = pageMeta[activeView];
+
   const isDraftMode = activeView === 'evaluation-setup' && !selectedSessionId;
 
   useEffect(() => {
@@ -140,6 +130,10 @@ export const TeacherDashboard = () => {
   }, [navigate, token]);
 
   useEffect(() => {
+    if (!token) {
+      return;
+    }
+
     const loadSessions = async () => {
       try {
         const sessionList = await listTeacherSessions();
@@ -147,15 +141,14 @@ export const TeacherDashboard = () => {
       } catch (error) {
         setUploadError(getErrorMessage(error, 'Unable to load sessions right now.'));
       } finally {
-        setIsLoadingSessions(false);
       }
     };
 
     void loadSessions();
-  }, []);
+  }, [token]);
 
   useEffect(() => {
-    if (!selectedSessionId) {
+    if (!token || !selectedSessionId) {
       return;
     }
 
@@ -170,7 +163,7 @@ export const TeacherDashboard = () => {
     };
 
     void loadSession();
-  }, [selectedSessionId]);
+  }, [selectedSessionId, token]);
 
   useEffect(() => {
     if (selectedSession?.status !== 'processing') {
@@ -218,6 +211,13 @@ export const TeacherDashboard = () => {
     setSetupSuccess('');
   };
 
+  const resetQcpState = () => {
+    setQcpForm(defaultQCPFormState());
+    setQcpResult(null);
+    setSetupError('');
+    setSetupSuccess('');
+  };
+
   const resetUploadState = () => {
     setInspection(null);
     setUploadError('');
@@ -240,6 +240,7 @@ export const TeacherDashboard = () => {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
+    localStorage.removeItem('user_email');
     navigate('/');
   };
 
@@ -287,6 +288,25 @@ export const TeacherDashboard = () => {
     setForm((current) => ({
       ...current,
       [field]: value,
+    }));
+  };
+
+  const handleQcpFormChange = <K extends keyof QCPFormState>(field: K, value: QCPFormState[K]) => {
+    setQcpForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const handleQcpFileChange = (file: File | null) => {
+    if (file && !isPdfFile(file)) {
+      setSetupError('Relevant documents must be PDF files.');
+      return;
+    }
+    setSetupError('');
+    setQcpForm((current) => ({
+      ...current,
+      relevent_docs: file,
     }));
   };
 
@@ -433,6 +453,35 @@ export const TeacherDashboard = () => {
     }
   };
 
+  const handleCreateQcp = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSetupError('');
+    setSetupSuccess('');
+    
+    if (!qcpForm.course.trim()) {
+      setSetupError('Please enter a course or subject name.');
+      return;
+    }
+    
+    if (!qcpForm.relevent_docs) {
+      setSetupError('Please upload relevant PDF documents for context.');
+      return;
+    }
+
+    setIsSubmittingQcp(true);
+    try {
+      // Lazy load to avoid circular dependency issues at the top level
+      const { generateQuestionPaper } = await import('../lib/teacherDashboardApi');
+      const generated = await generateQuestionPaper(qcpForm);
+      setQcpResult(generated);
+      setSetupSuccess('Question paper generated successfully.');
+    } catch (error) {
+      setSetupError(getErrorMessage(error, 'Unable to generate the question paper.'));
+    } finally {
+      setIsSubmittingQcp(false);
+    }
+  };
+
   return (
     <div className="page-shell min-h-screen px-4 py-4 text-slate-900 sm:px-5 lg:px-6">
       <div className="mx-auto grid min-h-[calc(100vh-2rem)] max-w-[1600px] gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
@@ -447,6 +496,10 @@ export const TeacherDashboard = () => {
           onDeleteSession={handleDeleteSession}
           onSetActiveView={handleActiveViewChange}
           onToggleSessions={() => setIsSessionsExpanded((current) => !current)}
+          onOpenQcp={() => {
+            setActiveView('qcp');
+            resetQcpState();
+          }}
           selectedSessionId={selectedSessionId}
           sessions={sessions}
         />
@@ -457,6 +510,7 @@ export const TeacherDashboard = () => {
               onCreateSession={beginNewSessionDraft}
               onOpenUploads={() => handleActiveViewChange('script-uploads')}
               onSelectSession={handleSelectSession}
+              onOpenOmi={() => handleActiveViewChange('omi')}
               selectedSession={selectedSession}
               sessions={sessions}
             />
@@ -494,6 +548,23 @@ export const TeacherDashboard = () => {
           ) : null}
 
           {activeView === 'analytics' ? <AnalyticsView selectedSession={selectedSession} isProcessing={isProcessing} /> : null}
+
+          {activeView === 'qcp' ? (
+            <QCPView
+              error={setupError}
+              form={qcpForm}
+              isSubmitting={isSubmittingQcp}
+              onFileChange={handleQcpFileChange}
+              onFormChange={handleQcpFormChange}
+              onSubmit={handleCreateQcp}
+              successMessage={setupSuccess}
+              generatedPaper={qcpResult}
+            />
+          ) : null}
+
+          {activeView === 'omi' ? (
+            <OmiView />
+          ) : null}
         </main>
       </div>
     </div>

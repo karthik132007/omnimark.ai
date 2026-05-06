@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { isAxiosError } from 'axios';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Brain, Building2, LogIn, ShieldCheck, Sparkles, UserPlus } from 'lucide-react';
-
-const API_URL = 'http://localhost:8000';
+import { api } from '../lib/api';
 
 export const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -22,9 +21,10 @@ export const Auth = () => {
 
     try {
       if (isLogin) {
-        const res = await axios.post(`${API_URL}/auth/login`, { email, password });
+        const res = await api.post('/auth/login', { email, password });
         localStorage.setItem('token', res.data.access_token);
         localStorage.setItem('role', res.data.role);
+        localStorage.setItem('user_email', String(res.data.email ?? email).trim().toLowerCase());
 
         if (res.data.role === 'university') {
           navigate('/univ-dashboard');
@@ -32,15 +32,16 @@ export const Auth = () => {
           navigate('/teacher-dashboard');
         }
       } else {
-        await axios.post(`${API_URL}/auth/univ/register`, { name, email, password });
+        await api.post('/auth/univ/register', { name, email, password });
 
-        const res = await axios.post(`${API_URL}/auth/login`, { email, password });
+        const res = await api.post('/auth/login', { email, password });
         localStorage.setItem('token', res.data.access_token);
         localStorage.setItem('role', res.data.role);
+        localStorage.setItem('user_email', String(res.data.email ?? email).trim().toLowerCase());
         navigate('/univ-dashboard');
       }
     } catch (error: unknown) {
-      setError(axios.isAxiosError(error) ? String(error.response?.data?.detail || 'An error occurred') : 'An error occurred');
+      setError(isAxiosError(error) ? String(error.response?.data?.detail || 'An error occurred') : 'An error occurred');
     } finally {
       setIsSubmitting(false);
     }
