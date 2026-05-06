@@ -155,6 +155,12 @@ export interface OmiAnalysisResponse {
   areas_for_improvement: string[];
   action_plan: string[];
   insights?: string[];
+  priority_focus?: string[];
+  risk_signals?: string[];
+  teaching_strategy?: string[];
+  next_checkpoints?: string[];
+  trend_summary?: string;
+  confidence_note?: string;
   performance_level?: 'excellent' | 'good' | 'average' | 'poor' | string;
   error?: string;
   raw?: string;

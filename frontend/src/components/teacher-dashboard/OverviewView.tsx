@@ -14,6 +14,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -61,6 +62,11 @@ const chartTooltipStyle = {
   border: '1px solid #e2e8f0',
   boxShadow: '0 16px 34px rgba(15,23,42,0.08)',
 };
+
+const mistakeChartColors = ['#ef4444', '#f97316', '#f59e0b', '#06b6d4', '#6366f1', '#8b5cf6'];
+const scoreChartColors = ['#ef4444', '#f97316', '#f59e0b', '#22c55e', '#14b8a6', '#3b82f6'];
+const chartAxisTick = { fontSize: 11, fill: '#64748b' };
+const chartGridColor = '#dbeafe';
 
 export const OverviewView = ({
   onCreateSession,
@@ -201,11 +207,25 @@ export const OverviewView = ({
             {hasPerformanceData ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={trendData} margin={{ top: 8, right: 12, bottom: 8, left: -12 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: '#64748b' }} tickLine={false} axisLine={false} />
+                  <defs>
+                    <linearGradient id="averageMarksStroke" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#06b6d4" />
+                      <stop offset="48%" stopColor="#6366f1" />
+                      <stop offset="100%" stopColor="#a855f7" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
+                  <XAxis dataKey="name" tick={chartAxisTick} tickLine={false} axisLine={false} />
+                  <YAxis tick={chartAxisTick} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={chartTooltipStyle} formatter={(value) => [value, 'Avg marks']} />
-                  <Line type="monotone" dataKey="average_marks" stroke="#0f172a" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  <Line
+                    type="monotone"
+                    dataKey="average_marks"
+                    stroke="url(#averageMarksStroke)"
+                    strokeWidth={3}
+                    dot={{ r: 4, strokeWidth: 2, fill: '#ffffff', stroke: '#6366f1' }}
+                    activeDot={{ r: 7, strokeWidth: 3, fill: '#06b6d4', stroke: '#ffffff' }}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
@@ -228,11 +248,15 @@ export const OverviewView = ({
             {summary.common_mistakes.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={summary.common_mistakes} layout="vertical" margin={{ top: 8, right: 8, bottom: 8, left: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis type="number" tick={{ fontSize: 11, fill: '#64748b' }} tickLine={false} axisLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
+                  <XAxis type="number" tick={chartAxisTick} tickLine={false} axisLine={false} />
                   <YAxis dataKey="name" type="category" width={130} tick={{ fontSize: 11, fill: '#475569' }} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={chartTooltipStyle} />
-                  <Bar dataKey="count" fill="#334155" radius={[0, 8, 8, 0]} />
+                  <Bar dataKey="count" radius={[0, 8, 8, 0]}>
+                    {summary.common_mistakes.map((mistake, index) => (
+                      <Cell key={`mistake-${mistake.name}`} fill={mistakeChartColors[index % mistakeChartColors.length]} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -275,11 +299,15 @@ export const OverviewView = ({
             {summary.score_distribution.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={summary.score_distribution} margin={{ top: 6, right: 12, bottom: 0, left: -16 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="range" tick={{ fontSize: 11, fill: '#64748b' }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: '#64748b' }} tickLine={false} axisLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
+                  <XAxis dataKey="range" tick={chartAxisTick} tickLine={false} axisLine={false} />
+                  <YAxis tick={chartAxisTick} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={chartTooltipStyle} />
-                  <Bar dataKey="students" fill="#0f172a" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="students" radius={[8, 8, 0, 0]}>
+                    {summary.score_distribution.map((bucket, index) => (
+                      <Cell key={`score-${bucket.range}`} fill={scoreChartColors[index % scoreChartColors.length]} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
