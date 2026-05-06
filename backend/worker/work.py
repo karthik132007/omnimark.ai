@@ -84,7 +84,10 @@ def process_session(session_id, file_location):
         )
     db.sessions.update_one(
         {"session_id": session_id},
-        {"$set": {"cheat_detection_status": "running"}},
+        {
+            "$set": {"cheat_detection_status": "running"},
+            "$unset": {"cheat_detection": "", "cheat_detection_error": ""},
+        },
     )
     try:
         check_cheat_in_session(session_id)

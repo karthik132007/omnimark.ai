@@ -363,7 +363,10 @@ def detect_cheat(
         raise HTTPException(status_code=400, detail="Session not in processed state")
     db.sessions.update_one(
         {"session_id": session_id},
-        {"$set": {"cheat_detection_status": "running"}},
+        {
+            "$set": {"cheat_detection_status": "running"},
+            "$unset": {"cheat_detection": "", "cheat_detection_error": ""},
+        },
     )
     background_tasks.add_task(check_cheat_in_session, session_id)
     return {"message": "Cheat detection started"}
@@ -384,6 +387,13 @@ def get_cheat_report(
         raise HTTPException(status_code=404, detail="Session not found")
 
     report = session.get("cheat_detection")
+    if session.get("cheat_detection_status") == "running":
+        return {
+            "status": "running",
+            "last_run": session.get("cheat_detection_last_run"),
+            "report": None,
+        }
+
     if report:
         return {
             "status": session.get("cheat_detection_status", "completed"),

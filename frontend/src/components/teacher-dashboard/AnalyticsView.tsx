@@ -757,6 +757,7 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
     }
     setIsRunningCheat(true);
     setCheatError('');
+    setCheatReport(null);
     try {
       await triggerCheatDetection(selectedSession.session_id);
       setCheatStatus('running');
