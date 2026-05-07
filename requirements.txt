@@ -8,5 +8,6 @@ bcrypt~=5.0.0
 nltk~=3.9.4
 sentence-transformers~=5.4.1
 openai~=2.33.0
+ollama 
 paddleocr~=3.5.0
-pdf2image~=1.17.0
+pdf2image~=1.17.0ollama

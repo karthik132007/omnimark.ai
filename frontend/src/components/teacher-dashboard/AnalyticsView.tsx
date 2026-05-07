@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   BarChart3,
   BrainCircuit,
@@ -20,10 +20,11 @@ import {
   MessageSquare,
   Eye,
   X,
+  RefreshCw,
 } from 'lucide-react';
 import type { TeacherSession } from '../../types/teacherDashboard';
 import type { SessionResult, NlpResult, LlmResult, CheatDetectionReport } from '../../types/teacherDashboard';
-import { getCheatReport, getSessionResults, triggerCheatDetection } from '../../lib/teacherDashboardApi';
+import { getCheatReport, getSessionResults, triggerCheatDetection, reevaluateStudent } from '../../lib/teacherDashboardApi';
 
 interface AnalyticsViewProps {
   selectedSession: TeacherSession | null;
@@ -106,7 +107,7 @@ const NlpAnalytics = ({
           <div className="flex items-center gap-2 ml-4">
             <button
               type="button"
-              onClick={() => {}}
+              onClick={() => { }}
               className="flex items-center gap-2 rounded-lg bg-[#0f172a] px-3.5 py-2 text-[12px] font-bold text-white transition hover:bg-slate-800"
             >
               <BrainCircuit className="h-3.5 w-3.5" />
@@ -188,10 +189,27 @@ const NlpAnalytics = ({
 };
 
 /* ═══════════════════ LLM Dashboard View ═══════════════════ */
-const LlmAnalytics = ({ results, onRunCheatDetection }: { results: SessionResult[]; onRunCheatDetection: () => void }) => {
+type ReevaluationSnapshot = {
+  before: LlmResult;
+  after: LlmResult;
+  at: number;
+};
+
+const LlmAnalytics = ({
+  results,
+  onRunCheatDetection,
+  onReevaluate,
+  reevaluations,
+}: {
+  results: SessionResult[];
+  onRunCheatDetection: () => void;
+  onReevaluate: (studentName: string, currentResult: LlmResult) => Promise<void>;
+  reevaluations: Record<string, ReevaluationSnapshot>;
+}) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<SessionResult | null>(null);
   const [sortBy, setSortBy] = useState<'name' | 'marks_desc' | 'marks_asc'>('marks_desc');
+  const [isReevaluating, setIsReevaluating] = useState(false);
 
   const totals = results.map((r) => (r.result as LlmResult).total_marks);
   const confidences = results.map((r) => (r.result as LlmResult).confidence_score);
@@ -312,7 +330,7 @@ const LlmAnalytics = ({ results, onRunCheatDetection }: { results: SessionResult
                 </div>
               </div>
             </div>
-            
+
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
@@ -329,7 +347,7 @@ const LlmAnalytics = ({ results, onRunCheatDetection }: { results: SessionResult
                   {filtered.map((r, i) => {
                     const res = r.result as LlmResult;
                     const hasOcrIssue = res.other_info?.ocr_issue_detected;
-                    
+
                     let perfLabel = 'Average';
                     let perfTone = 'bg-amber-50 text-amber-700 border-amber-200/50';
                     if (res.confidence_score >= 85) { perfLabel = 'Excellent'; perfTone = 'bg-emerald-50 text-emerald-700 border-emerald-200/50'; }
@@ -361,6 +379,14 @@ const LlmAnalytics = ({ results, onRunCheatDetection }: { results: SessionResult
                           >
                             <Eye className="h-4 w-4" />
                           </button>
+                          {reevaluations[r.student_name] ? (
+                            <span
+                              title="Re-evaluated"
+                              className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-50 text-indigo-600"
+                            >
+                              <Sparkles className="h-3 w-3" />
+                            </span>
+                          ) : null}
                         </td>
                       </tr>
                     );
@@ -459,7 +485,7 @@ const LlmAnalytics = ({ results, onRunCheatDetection }: { results: SessionResult
               <div className="text-[12px] text-slate-500">No common weaknesses identified.</div>
             )}
           </div>
-          
+
 
         </div>
       </div>
@@ -468,11 +494,11 @@ const LlmAnalytics = ({ results, onRunCheatDetection }: { results: SessionResult
       {selectedStudent && (
         <div className="fixed inset-0 z-[100] flex justify-end">
           {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm animate-fade-in" 
+          <div
+            className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm animate-fade-in"
             onClick={() => setSelectedStudent(null)}
           />
-          
+
           {/* Drawer Panel */}
           <div className="relative w-full max-w-2xl bg-white shadow-2xl animate-slide-in-right overflow-y-auto flex flex-col h-full">
             {/* Header */}
@@ -488,13 +514,35 @@ const LlmAnalytics = ({ results, onRunCheatDetection }: { results: SessionResult
                   )}
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedStudent(null)}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={isReevaluating}
+                  onClick={async () => {
+                    setIsReevaluating(true);
+                    try {
+                      await onReevaluate(
+                        selectedStudent.student_name,
+                        selectedStudent.result as LlmResult,
+                      );
+                      setSelectedStudent(null);
+                    } finally {
+                      setIsReevaluating(false);
+                    }
+                  }}
+                  className="flex items-center gap-2 rounded-lg bg-indigo-50 px-4 py-2 text-[12px] font-bold text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-50"
+                >
+                  {isReevaluating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
+                  {isReevaluating ? 'Evaluating...' : 'Re-evaluate with GPT OSS Thinking Mode'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedStudent(null)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
             {/* Content */}
@@ -510,6 +558,24 @@ const LlmAnalytics = ({ results, onRunCheatDetection }: { results: SessionResult
                   <div className="mt-1 text-3xl font-extrabold text-emerald-700">{(selectedStudent.result as LlmResult).confidence_score}%</div>
                 </div>
               </div>
+
+              {reevaluations[selectedStudent.student_name] ? (
+                <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-5">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-indigo-700">Re-evaluation Snapshot</div>
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-[12px] font-semibold text-slate-700">
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Before</div>
+                      <div className="mt-1">Marks: {reevaluations[selectedStudent.student_name].before.total_marks}</div>
+                      <div>Confidence: {reevaluations[selectedStudent.student_name].before.confidence_score}%</div>
+                    </div>
+                    <div className="rounded-xl border border-indigo-200 bg-white px-3 py-2">
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-indigo-500">After</div>
+                      <div className="mt-1">Marks: {reevaluations[selectedStudent.student_name].after.total_marks}</div>
+                      <div>Confidence: {reevaluations[selectedStudent.student_name].after.confidence_score}%</div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               {/* Evaluation Note */}
               {(selectedStudent.result as LlmResult).evaluation_note && (
@@ -538,7 +604,7 @@ const LlmAnalytics = ({ results, onRunCheatDetection }: { results: SessionResult
                           <th className="px-5 py-3">Feedback</th>
                         </tr>
                       </thead>
-                        <tbody>
+                      <tbody>
                         {Object.keys((selectedStudent.result as LlmResult).marks || {}).map((q) => (
                           <tr key={q} className="border-t border-slate-50">
                             <td className="px-5 py-4 font-semibold text-slate-800">{q}</td>
@@ -586,22 +652,22 @@ const LlmAnalytics = ({ results, onRunCheatDetection }: { results: SessionResult
                 )}
               </div>
             </div>
-            
+
             {/* Footer */}
             <div className="sticky bottom-0 border-t border-slate-100 bg-slate-50 px-8 py-4 flex justify-end gap-3">
-               <button
-                 type="button"
-                 className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-               >
-                 Export PDF
-               </button>
-               <button
-                 type="button"
-                 onClick={() => setSelectedStudent(null)}
-                 className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800"
-               >
-                 Close Report
-               </button>
+              <button
+                type="button"
+                className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+              >
+                Export PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedStudent(null)}
+                className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800"
+              >
+                Close Report
+              </button>
             </div>
           </div>
         </div>
@@ -695,40 +761,44 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
   const [cheatStatus, setCheatStatus] = useState('idle');
   const [isRunningCheat, setIsRunningCheat] = useState(false);
   const [cheatError, setCheatError] = useState('');
+  const [reevaluations, setReevaluations] = useState<Record<string, ReevaluationSnapshot>>({});
 
   const isProcessed = selectedSession?.status === 'processed';
   const isLlm = selectedSession?.correction_mode === 'LLM';
   const maxMarks = selectedSession?.preferences?.max_marks ?? 100;
 
-  useEffect(() => {
-    if (!isProcessed || !selectedSession?.session_id) {
+  const fetchResults = useCallback(async () => {
+    if (!selectedSession?.session_id || !isProcessed) {
       setResults([]);
       setCheatReport(null);
       setCheatStatus('idle');
       return;
     }
-
-    const fetchResults = async () => {
-      setIsLoading(true);
-      setError('');
-      try {
-        const [data, cheat] = await Promise.all([
-          getSessionResults(selectedSession.session_id),
-          getCheatReport(selectedSession.session_id),
-        ]);
-        setResults(data);
-        setCheatReport(cheat.report);
-        setCheatStatus(cheat.status || 'idle');
-        setCheatError('');
-      } catch {
-        setError('Failed to load evaluation results.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    void fetchResults();
+    setIsLoading(true);
+    setError('');
+    try {
+      const [data, cheat] = await Promise.all([
+        getSessionResults(selectedSession.session_id),
+        getCheatReport(selectedSession.session_id),
+      ]);
+      setResults(data);
+      setCheatReport(cheat.report);
+      setCheatStatus(cheat.status || 'idle');
+      setCheatError('');
+    } catch {
+      setError('Failed to load evaluation results.');
+    } finally {
+      setIsLoading(false);
+    }
   }, [isProcessed, selectedSession?.session_id]);
+
+  useEffect(() => {
+    void fetchResults();
+  }, [fetchResults]);
+
+  useEffect(() => {
+    setReevaluations({});
+  }, [selectedSession?.session_id]);
 
   useEffect(() => {
     if (!selectedSession?.session_id || !isProcessed) {
@@ -765,6 +835,25 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
       setCheatError('Failed to start cheat detection. Please try again.');
     } finally {
       setIsRunningCheat(false);
+    }
+  };
+
+  const handleReevaluate = async (studentName: string, currentResult: LlmResult) => {
+    if (!selectedSession?.session_id) return;
+    try {
+      const response = await reevaluateStudent(selectedSession.session_id, studentName);
+      const newResult = response.new_result as LlmResult;
+      setReevaluations((prev) => ({
+        ...prev,
+        [studentName]: {
+          before: currentResult,
+          after: newResult,
+          at: Date.now(),
+        },
+      }));
+      await fetchResults(); // refresh the results after reevaluating
+    } catch (err) {
+      console.error('Failed to re-evaluate student', err);
     }
   };
 
@@ -863,7 +952,12 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
           <div className="mt-4 text-sm font-semibold text-slate-500">No results found for this session.</div>
         </div>
       ) : isLlm ? (
-        <LlmAnalytics results={results} onRunCheatDetection={handleRunCheatDetection} />
+        <LlmAnalytics
+          results={results}
+          onRunCheatDetection={handleRunCheatDetection}
+          onReevaluate={handleReevaluate}
+          reevaluations={reevaluations}
+        />
       ) : (
         <NlpAnalytics results={results} maxMarks={maxMarks} onRunCheatDetection={handleRunCheatDetection} />
       )}

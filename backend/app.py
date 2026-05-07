@@ -170,11 +170,11 @@ def omi_analyze(
     teacher = resolve_teacher_identity(current_user, teacher_email)
     stats_data = get_teacher_dashboard_summary(teacher["email"], teacher.get("id"))
     
-    analysis_json_str = explain_stats(stats_data)
     try:
+        analysis_json_str = explain_stats(stats_data)
         return json.loads(analysis_json_str)
     except Exception as e:
-        return {"error": "Failed to parse Omi analysis", "raw": analysis_json_str}
+        return {"error": "Failed to parse Omi analysis", "raw": str(e)}
 
 @app.get("/session/{session_id}/stats")
 def dashboard_session_stats(
@@ -350,6 +350,52 @@ def get_session_results(
     results = list(db.results.find({"session_id": session_id}, {"_id": 0}))
     return results
 
+@app.post("/session/{session_id}/student/{student_name}/reevaluate")
+def reevaluate_student(
+    session_id: str,
+    student_name: str,
+    teacher_email: str | None = Form(None),
+    current_user: dict | None = Depends(get_optional_current_user),
+):
+    session = get_authorized_session(session_id, current_user, teacher_email)
+    
+    # Get the specific result
+    result_record = db.results.find_one({"session_id": session_id, "student_name": student_name})
+    if not result_record:
+        raise HTTPException(status_code=404, detail="Student result not found")
+
+    from Engine.grade.llm import LLM_Reevaluate
+    
+    # Process reevaluation
+    previous_result = result_record.get("result", {})
+    student_answer = result_record.get("answer_text", "")
+    
+    # Fallback support for legacy sessions
+    if not student_answer:
+        pdf_path = result_record.get("pdf_file", "")
+        if pdf_path and os.path.exists(pdf_path):
+            from backend.worker.work import get_text_from_nonOCR_pdf
+            # Just default to trying non-OCR text for simplicity
+            student_answer = get_text_from_nonOCR_pdf(pdf_path)
+
+    question_paper = session.get("question_paper", "")
+    teacher_model_answer = session.get("teacher_model_answer", "")
+    preferences = session.get("preferences", {})
+
+    new_result = LLM_Reevaluate(
+        question_paper=question_paper,
+        teacher_model_answer=teacher_model_answer,
+        student_answer=student_answer,
+        preferences=preferences,
+        previous_result=previous_result
+    )
+
+    db.results.update_one(
+        {"session_id": session_id, "student_name": student_name},
+        {"$set": {"result": new_result}}
+    )
+    
+    return {"message": "Reevaluation complete", "new_result": new_result}
 
 @app.post("/session/{session_id}/cheat_detection")
 def detect_cheat(

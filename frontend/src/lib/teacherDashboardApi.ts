@@ -9,6 +9,8 @@ import type {
   OmiAnalysisResponse,
   TeacherDashboardSummary,
   CheatDetectionResponse,
+  NlpResult,
+  LlmResult,
 } from '../types/teacherDashboard';
 
 interface CreateSessionResponse {
@@ -126,9 +128,21 @@ export const getSessionResults = async (sessionId: string, teacherEmail?: string
   return response.data;
 };
 
+export const reevaluateStudent = async (sessionId: string, studentName: string, teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
+  const payload = new FormData();
+  if (email) payload.append('teacher_email', email);
+
+  const response = await api.post<{ message: string; new_result: NlpResult | LlmResult }>(
+    `/session/${sessionId}/student/${studentName}/reevaluate`,
+    payload
+  );
+  return response.data;
+};
+
 export const generateQuestionPaper = async (form: QCPFormState) => {
   const payload = new FormData();
-  
+
   const preferences = {
     difficulty: form.difficulty,
     max_marks: form.max_marks,
@@ -138,7 +152,7 @@ export const generateQuestionPaper = async (form: QCPFormState) => {
     choice_type: form.choice_type,
     custom_prompt: form.custom_prompt,
   };
-  
+
   payload.append('preferences_json', JSON.stringify(preferences));
   if (form.relevent_docs) {
     payload.append('relevent_docs', form.relevent_docs as Blob, form.relevent_docs.name);

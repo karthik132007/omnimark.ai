@@ -1,15 +1,28 @@
 from openai import OpenAI
 import os
+from dotenv import load_dotenv
 
-client = OpenAI(api_key=os.environ.get("LLM_API_KEY"))
+load_dotenv()
 
-def grade_via_llm(prompt, provider="api", model="gpt-4o"):
+client = OpenAI(
+    api_key=os.environ.get("LLM_API_KEY"),
+    base_url=os.environ.get("LLM_BASE_URL", "https://api.openai.com/v1")
+)
+
+def grade_via_llm(prompt, provider="ollama", model="gpt-oss:120b-cloud", think=None):
     if provider == "ollama":
         import ollama
-        response = ollama.chat(model=model, messages=[
-            {"role": "system", "content": "You are an expert examiner evaluating student answers based on the provided criteria."},
-            {"role": "user", "content": prompt}
-        ])
+        chat_kwargs = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": "You are an expert examiner evaluating student answers based on the provided criteria."},
+                {"role": "user", "content": prompt}
+            ],
+        }
+        if think is not None:
+            chat_kwargs["think"] = think
+
+        response = ollama.chat(**chat_kwargs)
         return response['message']['content']
     else:
         response = client.chat.completions.create(

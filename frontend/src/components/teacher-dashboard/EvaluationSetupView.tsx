@@ -28,6 +28,9 @@ interface EvaluationSetupViewProps {
   successMessage: string;
 }
 
+const API_MODELS = ['gpt-4o'] as const;
+const OLLAMA_MODELS = ['gpt-oss:120b-cloud', 'qwen3-coder-next:cloud'] as const;
+
 const UploadTile = ({
   acceptLabel,
   description,
@@ -206,7 +209,7 @@ export const EvaluationSetupView = ({
                           if (val === 'api') {
                             onFormChange('llmModel', 'gpt-4o');
                           } else {
-                            onFormChange('llmModel', 'qwen3-coder-next:cloud');
+                            onFormChange('llmModel', 'gpt-oss:120b-cloud');
                           }
                         }}
                         className="w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-[13px] font-semibold text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white disabled:cursor-not-allowed"
@@ -223,11 +226,11 @@ export const EvaluationSetupView = ({
                         onChange={(event) => onFormChange('llmModel', event.target.value)}
                         className="w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-[13px] font-semibold text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white disabled:cursor-not-allowed"
                       >
-                        {displayLlmProvider === 'api' ? (
-                          <option value="gpt-4o">gpt-4o</option>
-                        ) : (
-                          <option value="qwen3-coder-next:cloud">qwen3-coder-next:cloud</option>
-                        )}
+                        {(displayLlmProvider === 'api' ? API_MODELS : OLLAMA_MODELS).map((model) => (
+                          <option key={model} value={model}>
+                            {model === 'gpt-oss:120b-cloud' ? 'gpt-oss:120b-cloud (Thinking)' : model}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
