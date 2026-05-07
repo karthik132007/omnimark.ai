@@ -1,3 +1,4 @@
+from click import prompt
 from sklearn.feature_extraction.text import TfidfVectorizer
 from Engine.encoder import model
 from nltk.stem import WordNetLemmatizer
@@ -177,4 +178,30 @@ def make_reevaluate_prompt(question_paper, teacher_model_answer, student_answer,
     * select weaknesses from this list: ["Missed definitions", "Inaccurate facts", "Irrelevant content", "Poor structure", "Lack of examples", "Incomplete answer", "Poor language use", "Lack of critical thinking", "Plagiarism detected", "Ineffective communication", "Lack of formal definition", "Lack of real-world applications", "Unclear intuitive understanding", "Weak reasoning", "Incorrect method/process", "Incorrect units/notation", "Missed sub-parts", "Overly verbose", "Poor justification"]
     * if there are only one or few weaknesses, you can try to cut mark in decimal like 0.5 or 0.25 instead of full mark cut.
     """
+    return prompt
+
+def make_prompt_for_ocr():
+    prompt = f"""
+You are a strict OCR extraction engine for handwritten exam answer sheets.
+
+Your ONLY task is to transcribe the content exactly as written.
+
+RULES:
+- Do NOT correct spelling, grammar, punctuation, or formatting.
+- Do NOT summarize or interpret.
+- Preserve line breaks and paragraph structure.
+- Preserve crossed-out text if readable.
+- Preserve numbering, bullet points, equations, symbols, and units exactly.
+- If a word is unclear, include your best guess and mark uncertainty using [?].
+- Do NOT omit partially readable text.
+- If diagrams/tables are present, describe them briefly inside [DIAGRAM: ...] or [TABLE: ...].
+- Ignore page decorations or irrelevant marks.
+
+OUTPUT REQUIREMENTS:
+- Return ONLY the extracted text.
+- Do not return JSON.
+- Do not return code fences.
+- Do not add labels like "Extracted Text:".
+
+"""
     return prompt

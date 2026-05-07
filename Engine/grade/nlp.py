@@ -3,7 +3,7 @@ from Engine.helpers import remove_stop_words
 from Engine.helpers import get_key_words
 from Engine.helpers import get_lemmatized_words
 from Engine.helpers import similarity_score
-def Correct_NLP(Student_Response,Teacher_model_answer,preferences,key_points):
+def Correct_NLP(Student_Response,Teacher_model_answer,preferences,key_points=None): #key_points will be deprecated soon, we will move to keyword based grading instead of key point based grading 
     marks = 0
     max_marks = preferences.get('max_marks', 100)
 
