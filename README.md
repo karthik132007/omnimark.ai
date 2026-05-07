@@ -10,7 +10,7 @@ From grading handwritten or typed exam papers to generating new question papers 
 
 1. **Automated Answer Evaluation**: 
    - **NLP Mode**: Uses semantic similarity, keyword matching, and length comparisons for rapid and deterministic grading of textual answers.
-   - **LLM Mode**: Uses a sophisticated language model (`qwen3-coder-next:cloud` via Ollama) for advanced contextual assessment and nuanced grading.
+   - **LLM Mode**: Uses a sophisticated language model (`qwen3-coder-next:cloud` or `gpt-oss-120b:cloud-Thinking`via Ollama) for advanced contextual assessment and nuanced grading.
 2. **Handwritten Support (OCR)**: Extracts text from scanned, handwritten student submissions using PaddleOCR before pushing it through the grading pipeline.
 3. **Cheat Detection Engine**: Analyzes submissions using a robust combination of Semantic Similarity (Embeddings), Jaccard Index, Sequence Matching, Rare Overlap (TF-IDF), and Length analysis to identify potential collusion.
 4. **OMI (OmniMark Intelligence)**: An intelligent academic assistant that analyzes performance statistics and provides teachers with actionable insights, identifying strengths and learning gaps in the classroom.
@@ -29,7 +29,7 @@ From grading handwritten or typed exam papers to generating new question papers 
 - **Concurrency**: FastAPI `BackgroundTasks` for asynchronous grading and cheat detection.
 
 ### AI / ML Engine (The "Engine" Directory)
-- **LLM Engine**: Ollama (Running `qwen3-coder-next:cloud`)
+- **LLM Engine**: Ollama (Running `qwen3-coder-next:cloud`, `gpt-oss-120b:cloud-Thinking`)
 - **OCR Engine**: PaddleOCR & `pdf2image`
 - **NLP Processing**: NLTK (Stopwords, Lemmatization, Keyword Extraction)
 - **Embeddings / Similarity**: `sentence-transformers` & Scikit-learn (Cosine Similarity, Semantic Matrix)
