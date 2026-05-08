@@ -21,6 +21,9 @@ import {
   deleteTeacherSession,
   getMyClassStudents,
   getMyClassStudentDetail,
+  getTeacherReevaluationRequests,
+  approveTeacherReevaluationRequest,
+  rejectTeacherReevaluationRequest,
 } from '../lib/teacherDashboardApi';
 import type {
   DashboardView,
@@ -31,6 +34,7 @@ import type {
   QCPFormState,
   ClassroomStudent,
   ClassroomStudentDetailResponse,
+  ReevaluationRequest,
 } from '../types/teacherDashboard';
 
 const defaultQCPFormState = (): QCPFormState => ({
@@ -128,7 +132,10 @@ export const TeacherDashboard = () => {
   const [selectedRollnum, setSelectedRollnum] = useState<number | null>(null);
   const [selectedStudentDetail, setSelectedStudentDetail] = useState<ClassroomStudentDetailResponse | null>(null);
   const [isClassLoading, setIsClassLoading] = useState(false);
+  const [isClassRefreshing, setIsClassRefreshing] = useState(false);
   const [classError, setClassError] = useState('');
+  const [pendingRequests, setPendingRequests] = useState<ReevaluationRequest[]>([]);
+  const [requestActionLoading, setRequestActionLoading] = useState<string | null>(null);
 
 
   const isDraftMode = activeView === 'evaluation-setup' && !selectedSessionId;
@@ -294,20 +301,44 @@ export const TeacherDashboard = () => {
     setActiveView(view);
   };
 
+  const loadMyClassData = async (options?: { refresh?: boolean }) => {
+    const asRefresh = Boolean(options?.refresh);
+    if (asRefresh) {
+      setIsClassRefreshing(true);
+    } else {
+      setIsClassLoading(true);
+    }
+    setClassError('');
+    try {
+      const [data, reqs] = await Promise.all([
+        getMyClassStudents(),
+        getTeacherReevaluationRequests(undefined),
+      ]);
+      setClassStudents(data);
+      setPendingRequests(reqs);
+
+      const selectedStillExists = selectedRollnum && data.some((row) => row.rollnum === selectedRollnum);
+      const nextRollnum = selectedStillExists ? selectedRollnum : data[0]?.rollnum ?? null;
+      setSelectedRollnum(nextRollnum);
+      if (nextRollnum) {
+        const detail = await getMyClassStudentDetail(nextRollnum);
+        setSelectedStudentDetail(detail);
+      } else {
+        setSelectedStudentDetail(null);
+      }
+    } catch (error) {
+      setClassError(getErrorMessage(error, 'Unable to load class students.'));
+    } finally {
+      setIsClassLoading(false);
+      setIsClassRefreshing(false);
+    }
+  };
+
   useEffect(() => {
     if (activeView !== 'my-class') {
       return;
     }
-    const loadClass = async () => {
-      setClassError('');
-      try {
-        const data = await getMyClassStudents();
-        setClassStudents(data);
-      } catch (error) {
-        setClassError(getErrorMessage(error, 'Unable to load class students.'));
-      }
-    };
-    void loadClass();
+    void loadMyClassData();
   }, [activeView]);
 
   const handleSelectClassStudent = async (rollnum: number) => {
@@ -322,6 +353,32 @@ export const TeacherDashboard = () => {
       setClassError(getErrorMessage(error, 'Unable to load student history.'));
     } finally {
       setIsClassLoading(false);
+    }
+  };
+
+  const handleApproveRequest = async (requestId: string) => {
+    setRequestActionLoading(requestId);
+    setClassError('');
+    try {
+      await approveTeacherReevaluationRequest(requestId);
+      await loadMyClassData({ refresh: true });
+    } catch (error) {
+      setClassError(getErrorMessage(error, 'Unable to approve reevaluation request.'));
+    } finally {
+      setRequestActionLoading(null);
+    }
+  };
+
+  const handleRejectRequest = async (requestId: string) => {
+    setRequestActionLoading(requestId);
+    setClassError('');
+    try {
+      await rejectTeacherReevaluationRequest(requestId, 'Request rejected by teacher');
+      await loadMyClassData({ refresh: true });
+    } catch (error) {
+      setClassError(getErrorMessage(error, 'Unable to reject reevaluation request.'));
+    } finally {
+      setRequestActionLoading(null);
     }
   };
 
@@ -614,6 +671,12 @@ export const TeacherDashboard = () => {
               selectedDetail={selectedStudentDetail}
               isLoading={isClassLoading}
               error={classError}
+              requests={pendingRequests}
+              requestActionLoading={requestActionLoading}
+              isRefreshing={isClassRefreshing}
+              onRefresh={() => { void loadMyClassData({ refresh: true }); }}
+              onApproveRequest={handleApproveRequest}
+              onRejectRequest={handleRejectRequest}
               onSelectStudent={handleSelectClassStudent}
             />
           ) : null}

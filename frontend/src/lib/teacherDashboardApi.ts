@@ -13,6 +13,7 @@ import type {
   LlmResult,
   ClassroomStudent,
   ClassroomStudentDetailResponse,
+  ReevaluationRequest,
 } from '../types/teacherDashboard';
 
 interface CreateSessionResponse {
@@ -214,5 +215,36 @@ export const getMyClassStudentDetail = async (rollnum: number, teacherEmail?: st
   const response = await api.get<ClassroomStudentDetailResponse>(`/teacher/my-class/${rollnum}`, {
     params: { teacher_email: email },
   });
+  return response.data;
+};
+
+export const getTeacherReevaluationRequests = async (status?: string, teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
+  const response = await api.get<ReevaluationRequest[]>('/teacher/reevaluation-requests', {
+    params: { teacher_email: email, status },
+  });
+  return response.data;
+};
+
+export const approveTeacherReevaluationRequest = async (requestId: string, teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
+  const payload = new FormData();
+  payload.append('teacher_email', email);
+  const response = await api.post<{ message: string; request_id: string }>(
+    `/teacher/reevaluation-requests/${requestId}/approve`,
+    payload,
+  );
+  return response.data;
+};
+
+export const rejectTeacherReevaluationRequest = async (requestId: string, reason: string, teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
+  const payload = new FormData();
+  payload.append('teacher_email', email);
+  payload.append('reason', reason);
+  const response = await api.post<{ message: string; request_id: string }>(
+    `/teacher/reevaluation-requests/${requestId}/reject`,
+    payload,
+  );
   return response.data;
 };

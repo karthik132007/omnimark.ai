@@ -81,8 +81,15 @@ export interface LlmResult {
 export interface SessionResult {
   session_id: string;
   student_name: string;
+  student_rollnum?: number;
   pdf_file: string;
   answer_text?: string;
+  reevaluation_history?: Array<{
+    at: string;
+    actor: string;
+    before: LlmResult | NlpResult;
+    after: LlmResult | NlpResult;
+  }>;
   cheat_detection?: {
     risk_level?: string;
     risk_score?: number;
@@ -220,4 +227,18 @@ export interface ClassroomStudent {
 export interface ClassroomStudentDetailResponse {
   student: ClassroomStudent;
   results: SessionResult[];
+  requests?: ReevaluationRequest[];
+}
+
+export interface ReevaluationRequest {
+  _id: string;
+  rollnum: number;
+  student_name: string;
+  session_id: string;
+  reason: string;
+  status: string;
+  created_at?: string;
+  approved_at?: string;
+  rejected_at?: string;
+  rejection_reason?: string;
 }

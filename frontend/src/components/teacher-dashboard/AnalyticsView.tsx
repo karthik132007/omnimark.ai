@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BarChart3,
   BrainCircuit,
@@ -42,6 +42,16 @@ const KNOWN_STRENGTHS = new Set([
 const KNOWN_WEAKNESSES = new Set([
   "Missed definitions", "Inaccurate facts", "Irrelevant content", "Poor structure", "Lack of examples", "Incomplete answer", "Poor language use", "Lack of critical thinking", "Plagiarism detected", "Ineffective communication", "Lack of formal definition", "Lack of real-world applications", "Unclear intuitive understanding", "Weak reasoning", "Incorrect method/process", "Incorrect units/notation", "Missed sub-parts", "Overly verbose", "Poor justification"
 ]);
+
+const extractTotalMarks = (result: LlmResult | NlpResult) => {
+  if (typeof (result as LlmResult).total_marks === 'number') {
+    return (result as LlmResult).total_marks;
+  }
+  if (typeof (result as NlpResult).marks === 'number') {
+    return (result as NlpResult).marks;
+  }
+  return 0;
+};
 
 /* ─── Stat Card ─── */
 const StatCard = ({ icon: Icon, label, value, sub, tone = 'slate' }: {
@@ -192,7 +202,7 @@ const NlpAnalytics = ({
 type ReevaluationSnapshot = {
   before: LlmResult;
   after: LlmResult;
-  at: number;
+  at: string;
 };
 
 const LlmAnalytics = ({
@@ -203,11 +213,12 @@ const LlmAnalytics = ({
 }: {
   results: SessionResult[];
   onRunCheatDetection: () => void;
-  onReevaluate: (studentName: string, currentResult: LlmResult) => Promise<void>;
+  onReevaluate: (studentName: string) => Promise<void>;
   reevaluations: Record<string, ReevaluationSnapshot>;
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<SessionResult | null>(null);
+  const [isAnswerOpen, setIsAnswerOpen] = useState(false);
   const [sortBy, setSortBy] = useState<'name' | 'marks_desc' | 'marks_asc'>('marks_desc');
   const [isReevaluating, setIsReevaluating] = useState(false);
 
@@ -523,7 +534,6 @@ const LlmAnalytics = ({
                     try {
                       await onReevaluate(
                         selectedStudent.student_name,
-                        selectedStudent.result as LlmResult,
                       );
                       setSelectedStudent(null);
                     } finally {
@@ -547,6 +557,16 @@ const LlmAnalytics = ({
 
             {/* Content */}
             <div className="flex-1 p-8 space-y-8">
+              <div className="flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsAnswerOpen(true)}
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                >
+                  See Answer
+                </button>
+              </div>
+
               {/* Quick Stats */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
@@ -573,6 +593,43 @@ const LlmAnalytics = ({
                       <div className="mt-1">Marks: {reevaluations[selectedStudent.student_name].after.total_marks}</div>
                       <div>Confidence: {reevaluations[selectedStudent.student_name].after.confidence_score}%</div>
                     </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {((selectedStudent.reevaluation_history?.length ?? 0) > 0) ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">Reevaluation Audit</div>
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          <th className="px-2 py-2">Time</th>
+                          <th className="px-2 py-2">Actor</th>
+                          <th className="px-2 py-2 text-center">Before</th>
+                          <th className="px-2 py-2 text-center">After</th>
+                          <th className="px-2 py-2 text-center">Delta</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...(selectedStudent.reevaluation_history || [])].reverse().map((entry, idx) => {
+                          const before = extractTotalMarks(entry.before as LlmResult | NlpResult);
+                          const after = extractTotalMarks(entry.after as LlmResult | NlpResult);
+                          const delta = after - before;
+                          return (
+                            <tr key={`${entry.at}-${idx}`} className="border-b border-slate-50">
+                              <td className="px-2 py-2 text-slate-700">{entry.at}</td>
+                              <td className="px-2 py-2 text-slate-700">{entry.actor}</td>
+                              <td className="px-2 py-2 text-center font-semibold text-slate-800">{before.toFixed(2)}</td>
+                              <td className="px-2 py-2 text-center font-semibold text-slate-800">{after.toFixed(2)}</td>
+                              <td className={`px-2 py-2 text-center font-bold ${delta >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                {delta >= 0 ? '+' : ''}{delta.toFixed(2)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               ) : null}
@@ -672,6 +729,39 @@ const LlmAnalytics = ({
           </div>
         </div>
       )}
+
+      {selectedStudent && isAnswerOpen ? (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-slate-900/35 backdrop-blur-sm"
+            onClick={() => setIsAnswerOpen(false)}
+          />
+          <div className="relative z-[121] w-full max-w-3xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Student Answer</h3>
+                <p className="text-xs text-slate-500">{selectedStudent.student_name}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAnswerOpen(false)}
+                className="rounded-full bg-slate-100 p-2 text-slate-600 transition hover:bg-slate-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="max-h-[65vh] overflow-y-auto px-5 py-4">
+              {selectedStudent.answer_text?.trim() ? (
+                <pre className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-700">
+                  {selectedStudent.answer_text}
+                </pre>
+              ) : (
+                <p className="text-sm text-slate-500">Student answer text is not available for this submission.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
@@ -761,7 +851,6 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
   const [cheatStatus, setCheatStatus] = useState('idle');
   const [isRunningCheat, setIsRunningCheat] = useState(false);
   const [cheatError, setCheatError] = useState('');
-  const [reevaluations, setReevaluations] = useState<Record<string, ReevaluationSnapshot>>({});
 
   const isProcessed = selectedSession?.status === 'processed';
   const isLlm = selectedSession?.correction_mode === 'LLM';
@@ -795,10 +884,6 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
   useEffect(() => {
     void fetchResults();
   }, [fetchResults]);
-
-  useEffect(() => {
-    setReevaluations({});
-  }, [selectedSession?.session_id]);
 
   useEffect(() => {
     if (!selectedSession?.session_id || !isProcessed) {
@@ -838,24 +923,30 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
     }
   };
 
-  const handleReevaluate = async (studentName: string, currentResult: LlmResult) => {
+  const handleReevaluate = async (studentName: string) => {
     if (!selectedSession?.session_id) return;
     try {
-      const response = await reevaluateStudent(selectedSession.session_id, studentName);
-      const newResult = response.new_result as LlmResult;
-      setReevaluations((prev) => ({
-        ...prev,
-        [studentName]: {
-          before: currentResult,
-          after: newResult,
-          at: Date.now(),
-        },
-      }));
+      await reevaluateStudent(selectedSession.session_id, studentName);
       await fetchResults(); // refresh the results after reevaluating
     } catch (err) {
       console.error('Failed to re-evaluate student', err);
     }
   };
+
+  const reevaluations = useMemo(() => {
+    const mapped: Record<string, ReevaluationSnapshot> = {};
+    for (const row of results) {
+      const history = row.reevaluation_history || [];
+      if (!history.length) continue;
+      const latest = history[history.length - 1];
+      mapped[row.student_name] = {
+        before: latest.before as LlmResult,
+        after: latest.after as LlmResult,
+        at: latest.at,
+      };
+    }
+    return mapped;
+  }, [results]);
 
   /* Still processing → show progress */
   if (!isProcessed) {

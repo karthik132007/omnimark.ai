@@ -1,4 +1,5 @@
 import os
+import re
 import zipfile
 from datetime import datetime, timezone
 from backend.db import db
@@ -270,5 +271,55 @@ def get_text_from_nonOCR_pdf(pdf_path):
     reader = PdfReader(pdf_path)
     text = ""
     for page in reader.pages:
-        text += page.extract_text()
-    return text
+        extracted = page.extract_text() or ""
+        text += extracted + "\n"
+
+    # Normalize common PDF extraction artifacts while preserving meaningful structure.
+    text = text.replace("\r", "\n")
+    raw_lines = [re.sub(r"[ \t]+", " ", ln).strip() for ln in text.split("\n")]
+    lines = [ln for ln in raw_lines]
+
+    list_marker_re = re.compile(r"^(\d+[\).:-]|[-*•])\s+")
+    merged_parts = []
+    prev_line = ""
+
+    for line in lines:
+        if not line:
+            # Preserve paragraph breaks.
+            if merged_parts and merged_parts[-1] != "\n\n":
+                merged_parts.append("\n\n")
+            prev_line = ""
+            continue
+
+        if not merged_parts:
+            merged_parts.append(line)
+            prev_line = line
+            continue
+
+        # Keep list and heading style breaks on new lines.
+        if list_marker_re.match(line) or prev_line.endswith(":"):
+            if merged_parts[-1] != "\n\n":
+                merged_parts.append("\n")
+            merged_parts.append(line)
+            prev_line = line
+            continue
+
+        # Word-per-line artifact fix: join tiny fragments with spaces.
+        prev_words = len(prev_line.split())
+        cur_words = len(line.split())
+        if prev_words <= 2 and cur_words <= 2:
+            merged_parts.append(" ")
+            merged_parts.append(line)
+            prev_line = f"{prev_line} {line}"
+            continue
+
+        # Default: join wrapped lines with spaces inside a paragraph.
+        merged_parts.append(" ")
+        merged_parts.append(line)
+        prev_line = line
+
+    cleaned = "".join(merged_parts)
+    cleaned = re.sub(r"[ \t]+", " ", cleaned)
+    cleaned = re.sub(r" ?\n ?","\\n", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()

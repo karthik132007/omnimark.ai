@@ -97,6 +97,47 @@ def resolve_teacher_email(current_user: dict, teacher_email: str | None = None):
 def _normalize_student_name(name: str):
     return " ".join(str(name or "").strip().lower().split())
 
+def _perform_reevaluation(session: dict, result_record: dict):
+    from Engine.grade.llm import LLM_Reevaluate
+
+    previous_result = result_record.get("result", {})
+    student_answer = result_record.get("answer_text", "")
+
+    # Fallback support for legacy sessions
+    if not student_answer:
+        pdf_path = result_record.get("pdf_file", "")
+        if pdf_path and os.path.exists(pdf_path):
+            student_answer = get_text_from_nonOCR_pdf(pdf_path)
+
+    question_paper = session.get("question_paper", "")
+    teacher_model_answer = session.get("teacher_model_answer", "")
+    preferences = session.get("preferences", {})
+
+    return LLM_Reevaluate(
+        question_paper=question_paper,
+        teacher_model_answer=teacher_model_answer,
+        student_answer=student_answer,
+        preferences=preferences,
+        previous_result=previous_result
+    )
+
+def _append_reevaluation_history(result_record: dict, after_result: dict, actor: str):
+    before_result = result_record.get("result", {})
+    entry = {
+        "at": datetime.now(timezone.utc).isoformat(),
+        "actor": actor,
+        "before": before_result,
+        "after": after_result,
+    }
+    db.results.update_one(
+        {"_id": result_record["_id"]},
+        {
+            "$set": {"result": after_result},
+            "$push": {"reevaluation_history": entry},
+        },
+    )
+    return entry
+
 def get_authorized_session(session_id: str, current_user: dict | None, teacher_email: str | None = None):
     session = db.sessions.find_one({"session_id": session_id})
     if session is None:
@@ -399,9 +440,18 @@ def get_my_class_student_detail(
     }
     result_rows = [row for row in result_rows if row.get("session_id") in teacher_session_ids]
     result_rows.sort(key=lambda x: x.get("session_id", ""))
+    request_rows = list(
+        db.student_requests.find(
+            {"rollnum": rollnum, "session_id": {"$in": list(teacher_session_ids)}}
+        ).sort("created_at", -1)
+    )
+    for req in request_rows:
+        req["_id"] = str(req["_id"])
+
     return {
         "student": class_student,
         "results": result_rows,
+        "requests": request_rows,
     }
 
 @app.get("/student/{rollnum}/results")
@@ -437,8 +487,10 @@ def request_student_reevaluation_open(
         "status": "pending",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    db.student_requests.insert_one(doc)
-    return {"message": "Reevaluation request submitted", "request": doc}
+    inserted = db.student_requests.insert_one(doc)
+    safe_doc = {k: v for k, v in doc.items() if k != "_id"}
+    safe_doc["request_id"] = str(inserted.inserted_id)
+    return {"message": "Reevaluation request submitted", "request": safe_doc}
 
 @app.post("/session/{session_id}/student/{student_name}/reevaluate")
 def reevaluate_student(
@@ -454,38 +506,104 @@ def reevaluate_student(
     if not result_record:
         raise HTTPException(status_code=404, detail="Student result not found")
 
-    from Engine.grade.llm import LLM_Reevaluate
+    new_result = _perform_reevaluation(session, result_record)
+    history_entry = _append_reevaluation_history(result_record, new_result, actor="teacher_direct")
     
-    # Process reevaluation
-    previous_result = result_record.get("result", {})
-    student_answer = result_record.get("answer_text", "")
-    
-    # Fallback support for legacy sessions
-    if not student_answer:
-        pdf_path = result_record.get("pdf_file", "")
-        if pdf_path and os.path.exists(pdf_path):
-            from backend.worker.work import get_text_from_nonOCR_pdf
-            # Just default to trying non-OCR text for simplicity
-            student_answer = get_text_from_nonOCR_pdf(pdf_path)
+    return {"message": "Reevaluation complete", "new_result": new_result, "history_entry": history_entry}
 
-    question_paper = session.get("question_paper", "")
-    teacher_model_answer = session.get("teacher_model_answer", "")
-    preferences = session.get("preferences", {})
+@app.get("/teacher/reevaluation-requests")
+def get_teacher_reevaluation_requests(
+    status: str | None = None,
+    teacher_email: str | None = None,
+    current_user: dict | None = Depends(get_optional_current_user),
+):
+    teacher = resolve_teacher_identity(current_user, teacher_email)
+    session_ids = [
+        row.get("session_id")
+        for row in db.sessions.find(
+            _teacher_session_query(teacher["email"], teacher.get("id")),
+            {"_id": 0, "session_id": 1},
+        )
+    ]
+    query = {"session_id": {"$in": session_ids}}
+    if status:
+        query["status"] = status
+    rows = list(db.student_requests.find(query).sort("created_at", -1))
+    safe_rows = []
+    for row in rows:
+        row["_id"] = str(row["_id"])
+        safe_rows.append(row)
+    return safe_rows
 
-    new_result = LLM_Reevaluate(
-        question_paper=question_paper,
-        teacher_model_answer=teacher_model_answer,
-        student_answer=student_answer,
-        preferences=preferences,
-        previous_result=previous_result
+@app.post("/teacher/reevaluation-requests/{request_id}/approve")
+def approve_reevaluation_request(
+    request_id: str,
+    teacher_email: str | None = Form(None),
+    current_user: dict | None = Depends(get_optional_current_user),
+):
+    teacher = resolve_teacher_identity(current_user, teacher_email)
+    try:
+        req_obj_id = ObjectId(request_id)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid request id") from exc
+    req = db.student_requests.find_one({"_id": req_obj_id})
+    if req is None:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    session_id = req.get("session_id")
+    session = get_authorized_session(session_id, current_user, teacher_email=teacher["email"])
+    result_record = db.results.find_one(
+        {"session_id": session_id, "student_rollnum": req.get("rollnum")}
     )
+    if result_record is None:
+        raise HTTPException(status_code=404, detail="Student result not found for reevaluation request")
 
-    db.results.update_one(
-        {"session_id": session_id, "student_name": student_name},
-        {"$set": {"result": new_result}}
+    if req.get("status") == "approved":
+        raise HTTPException(status_code=400, detail="Request already approved")
+    if req.get("status") == "rejected":
+        raise HTTPException(status_code=400, detail="Rejected requests cannot be approved")
+
+    new_result = _perform_reevaluation(session, result_record)
+    history_entry = _append_reevaluation_history(result_record, new_result, actor="teacher_approved_request")
+    db.student_requests.update_one(
+        {"_id": req["_id"]},
+        {"$set": {"status": "approved", "approved_at": datetime.now(timezone.utc).isoformat()}},
     )
-    
-    return {"message": "Reevaluation complete", "new_result": new_result}
+    return {"message": "Reevaluation approved and applied", "request_id": request_id, "history_entry": history_entry}
+
+@app.post("/teacher/reevaluation-requests/{request_id}/reject")
+def reject_reevaluation_request(
+    request_id: str,
+    reason: str = Form("Request rejected by teacher."),
+    teacher_email: str | None = Form(None),
+    current_user: dict | None = Depends(get_optional_current_user),
+):
+    teacher = resolve_teacher_identity(current_user, teacher_email)
+    try:
+        req_obj_id = ObjectId(request_id)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid request id") from exc
+    req = db.student_requests.find_one({"_id": req_obj_id})
+    if req is None:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if req.get("status") == "approved":
+        raise HTTPException(status_code=400, detail="Approved requests cannot be rejected")
+    if req.get("status") == "rejected":
+        raise HTTPException(status_code=400, detail="Request already rejected")
+
+    session_id = req.get("session_id")
+    get_authorized_session(session_id, current_user, teacher_email=teacher["email"])
+    db.student_requests.update_one(
+        {"_id": req["_id"]},
+        {
+            "$set": {
+                "status": "rejected",
+                "rejected_at": datetime.now(timezone.utc).isoformat(),
+                "rejection_reason": reason,
+            }
+        },
+    )
+    return {"message": "Reevaluation request rejected", "request_id": request_id}
 
 @app.post("/session/{session_id}/cheat_detection")
 def detect_cheat(
