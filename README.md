@@ -34,18 +34,35 @@ Primary users:
 
 ## Photos / Screenshots
 
+<table>
+  <tr>
+    <td align="center">
+      <img src="media/dashbord.png" alt="Dashboard Overview" width="400"/>
+      <br/>
+      <b>Dashboard Overview</b>
+    </td>
+    
+    <td align="center">
+      <img src="media/evalution_config_v1.png" alt="Session Setup" width="400"/>
+      <br/>
+      <b>Session Setup</b>
+    </td>
+  </tr>
 
-### Dashboard Overview
-<img src="media/dashbord.png" alt="Dashboard Overview" width="500" />
+  <tr>
+    <td align="center">
+      <img src="media/evalution_analysis.png" alt="Analytics" width="400"/>
+      <br/>
+      <b>Analytics & OMI Insights</b>
+    </td>
 
-### Session Setup
-<img src="media/evalution_config_v1.png" alt="Session Setup" width="500" />
-
-### Analytics and OMI Insights
-<img src="media/evalution_analysis.png" alt="Analytics" width="500" />
-
-### Analytics and OMI Insights
-<img src="media/omi.png" alt="OMI" width="760" />
+    <td align="center">
+      <img src="media/omi.png" alt="OMI" width="400"/>
+      <br/>
+      <b>OMI Assistant</b>
+    </td>
+  </tr>
+</table>
 ## Core Capabilities
 
 - Automated answer evaluation with two correction modes:
