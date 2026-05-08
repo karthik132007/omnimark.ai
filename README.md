@@ -34,35 +34,45 @@ Primary users:
 
 ## Photos / Screenshots
 
+## 📸 Platform Preview
+
+<div align="center">
+
 <table>
-  <tr>
-    <td align="center">
-      <img src="media/dashbord.png" alt="Dashboard Overview" width="400"/>
-      <br/>
-      <b>Dashboard Overview</b>
-    </td>
-    
-    <td align="center">
-      <img src="media/evalution_config_v1.png" alt="Session Setup" width="400"/>
-      <br/>
-      <b>Session Setup</b>
-    </td>
-  </tr>
+<tr>
+<td align="center" width="50%">
 
-  <tr>
-    <td align="center">
-      <img src="media/evalution_analysis.png" alt="Analytics" width="400"/>
-      <br/>
-      <b>Analytics & OMI Insights</b>
-    </td>
+### 📊 Dashboard Overview
+<img src="media/dashbord.png" alt="Dashboard Overview" width="95%" />
 
-    <td align="center">
-      <img src="media/omi.png" alt="OMI" width="400"/>
-      <br/>
-      <b>OMI Assistant</b>
-    </td>
-  </tr>
+</td>
+
+<td align="center" width="50%">
+
+### ⚙️ Session Setup
+<img src="media/evalution_config_v1.png" alt="Session Setup" width="95%" />
+
+</td>
+</tr>
+
+<tr>
+<td align="center" width="50%">
+
+### 📈 Evaluation Analytics
+<img src="media/evalution_analysis.png" alt="Analytics" width="95%" />
+
+</td>
+
+<td align="center" width="50%">
+
+### 🤖 OMI AI Insights
+<img src="media/omi.png" alt="OMI Assistant" width="95%" />
+
+</td>
+</tr>
 </table>
+
+</div>
 ## Core Capabilities
 
 - Automated answer evaluation with two correction modes:
