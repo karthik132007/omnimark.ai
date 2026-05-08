@@ -1,6 +1,15 @@
 {
-  "dependencies": {
-    "lucide-react": "^1.14.0",
-    "recharts": "^3.8.1"
+  "name": "omnimark-ai-root",
+  "private": true,
+  "version": "1.0.0",
+  "description": "OmniMark AI monorepo scripts",
+  "scripts": {
+    "install-all": "npm install && npm --prefix frontend install",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "backend": "cd backend && ../.venv/bin/uvicorn app:app --reload --host 0.0.0.0 --port 8000",
+    "frontend": "npm --prefix frontend run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }
