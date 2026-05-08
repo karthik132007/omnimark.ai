@@ -53,6 +53,10 @@ class LoginModel(BaseModel):
     email: EmailStr
     password: str
 
+class StudentLoginModel(BaseModel):
+    rollnum: int
+    password: str
+
 def _find_user_by_email(email: str):
     normalized = normalize_email(email)
     user = db.users.find_one({"email": normalized})
@@ -116,6 +120,30 @@ def login(login_data: LoginModel):
         "email": normalize_email(user["email"]),
     }
 
+@router.post("/auth/student/login", summary="Login for Student", tags=["Auth"])
+def login_student(login_data: StudentLoginModel):
+    student = db.students.find_one({"rollnum": int(login_data.rollnum)})
+    if not student or not _verify_login_password(student, login_data.password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={
+            "sub": f"student:{student['rollnum']}",
+            "role": "student",
+            "id": str(student["_id"]),
+            "rollnum": int(student["rollnum"]),
+        },
+        expires_delta=access_token_expires,
+    )
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "role": "student",
+        "rollnum": int(student["rollnum"]),
+        "name": student.get("name", ""),
+    }
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
@@ -125,8 +153,28 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         email: str = payload.get("sub")
         role: str = payload.get("role")
         user_id: str = payload.get("id")
-        if email is None:
+        rollnum = payload.get("rollnum")
+        if email is None and role != "student":
             raise HTTPException(status_code=401, detail="Invalid token")
+        if role == "student":
+            user = None
+            if user_id:
+                try:
+                    user = db.students.find_one({"_id": ObjectId(user_id)})
+                except Exception:
+                    user = None
+            if user is None and rollnum is not None:
+                user = db.students.find_one({"rollnum": int(rollnum)})
+            if user is None:
+                raise HTTPException(status_code=401, detail="User no longer exists")
+            return {
+                "email": "",
+                "role": "student",
+                "id": str(user["_id"]),
+                "name": user.get("name", ""),
+                "rollnum": int(user.get("rollnum", 0)),
+                "university_id": None,
+            }
         user = None
         if user_id:
             try:
@@ -155,8 +203,28 @@ def get_optional_current_user(token: str | None = Depends(oauth2_scheme_optional
         email: str = payload.get("sub")
         role: str = payload.get("role")
         user_id: str = payload.get("id")
-        if email is None:
+        rollnum = payload.get("rollnum")
+        if email is None and role != "student":
             return None
+        if role == "student":
+            user = None
+            if user_id:
+                try:
+                    user = db.students.find_one({"_id": ObjectId(user_id)})
+                except Exception:
+                    user = None
+            if user is None and rollnum is not None:
+                user = db.students.find_one({"rollnum": int(rollnum)})
+            if user is None:
+                return None
+            return {
+                "email": "",
+                "role": "student",
+                "id": str(user["_id"]),
+                "name": user.get("name", ""),
+                "rollnum": int(user.get("rollnum", 0)),
+                "university_id": None,
+            }
         user = None
         if user_id:
             try:

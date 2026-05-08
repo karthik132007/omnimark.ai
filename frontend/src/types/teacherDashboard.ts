@@ -1,4 +1,4 @@
-export type DashboardView = 'dashboard' | 'evaluation-setup' | 'script-uploads' | 'analytics' | 'qcp' | 'omi';
+export type DashboardView = 'dashboard' | 'evaluation-setup' | 'script-uploads' | 'analytics' | 'qcp' | 'omi' | 'my-class';
 
 export type EvaluationMode = 'NLP' | 'LLM';
 export type ExamType = 'Theory' | 'Technical';
@@ -201,4 +201,23 @@ export interface TeacherDashboardSummary {
     name: string;
     students: number;
   }>;
+}
+
+export interface ClassroomHistoryEntry {
+  session_id: string;
+  marks?: number | null;
+  captured_at?: string;
+}
+
+export interface ClassroomStudent {
+  rollnum: number;
+  name: string;
+  name_key: string;
+  history?: ClassroomHistoryEntry[];
+  updated_at?: string;
+}
+
+export interface ClassroomStudentDetailResponse {
+  student: ClassroomStudent;
+  results: SessionResult[];
 }

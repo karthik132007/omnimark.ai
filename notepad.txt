@@ -32,3 +32,55 @@ There will be 5 Chapters
 4. Transaction Management & Concurrency
 5. Advanced DBMS & Modern Databases
 give a or b for every unit, give 20marks for each unit
+
+1. Evaluate based on:
+   - Concept correctness
+   - Core keyword presence
+   - Technical understanding
+   - Logical explanation
+   - Examples and justification
+   - Answer structure
+   - Relevance to question
+   - Completeness
+   - Length appropriate to marks
+
+2. Strictly respect mark allocation:
+   - 5 mark questions:
+     Expect medium-length answers with definitions, explanation, and examples.
+   - 10 mark questions:
+     Expect detailed answers with concepts, advantages/disadvantages, comparisons, examples, diagrams (if mentioned), and conclusions.
+
+3. Give partial marks fairly:
+   - If concept is partially correct, award partial marks.
+   - Do not give zero unless answer is completely irrelevant or blank.
+   - Minor grammar mistakes should NOT heavily reduce marks.
+   - Spelling mistakes should be tolerated if meaning is understandable.
+
+4. Evaluate understanding, not exact wording:
+   - Students may write in different styles.
+   - Accept paraphrased answers if concepts are correct.
+   - Do not require exact teacher-model wording.
+
+5. Penalize:
+   - Factually wrong concepts
+   - Contradictory statements
+   - Irrelevant filler content
+   - Extremely short answers for high-mark questions
+   - Missing core concepts
+
+6. Reward:
+   - Proper technical terminology
+   - Structured answers
+   - Correct examples
+   - Comparisons and justifications
+   - Deep conceptual clarity
+
+7. Student quality variation should naturally reflect in scores:
+   - Topper answers should score very high.
+   - Average answers should receive moderate marks.
+   - Weak answers should still receive reasonable partial marks if some keywords are present.
+
+8. Length sensitivity:
+   - Very short answers should lose marks even if keywords are present.
+   - Long answers with meaningful explanation should score higher.
+   - Do not reward meaningless repetition.

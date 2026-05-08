@@ -11,6 +11,8 @@ import type {
   CheatDetectionResponse,
   NlpResult,
   LlmResult,
+  ClassroomStudent,
+  ClassroomStudentDetailResponse,
 } from '../types/teacherDashboard';
 
 interface CreateSessionResponse {
@@ -194,6 +196,22 @@ export const triggerCheatDetection = async (sessionId: string, teacherEmail?: st
 export const getCheatReport = async (sessionId: string, teacherEmail?: string) => {
   const email = resolveTeacherEmail(teacherEmail);
   const response = await api.get<CheatDetectionResponse>(`/session/${sessionId}/cheat_report`, {
+    params: { teacher_email: email },
+  });
+  return response.data;
+};
+
+export const getMyClassStudents = async (teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
+  const response = await api.get<ClassroomStudent[]>('/teacher/my-class', {
+    params: { teacher_email: email },
+  });
+  return response.data;
+};
+
+export const getMyClassStudentDetail = async (rollnum: number, teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
+  const response = await api.get<ClassroomStudentDetailResponse>(`/teacher/my-class/${rollnum}`, {
     params: { teacher_email: email },
   });
   return response.data;

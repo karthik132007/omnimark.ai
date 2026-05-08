@@ -2,11 +2,83 @@ import os
 import zipfile
 from datetime import datetime, timezone
 from backend.db import db
+from backend.auth import get_password_hash
 from Engine.OCR.ocr import extract_text_from_pdf
 from Engine.cheat_detection.main import analyze_session_cheating
 from Engine.grade.nlp import Correct_NLP
 from Engine.grade.llm import LLM_Grade
 from PyPDF2 import PdfReader
+
+
+def _normalize_student_name(name: str) -> str:
+    return " ".join(str(name or "").strip().lower().split())
+
+
+def _ensure_student_record(student_name: str):
+    normalized = _normalize_student_name(student_name)
+    if not normalized:
+        normalized = "unknown"
+        student_name = "Unknown"
+
+    student = db.students.find_one({"name_key": normalized})
+    if student:
+        return student
+
+    last = db.students.find_one({}, sort=[("rollnum", -1)])
+    next_roll = int(last.get("rollnum", 0)) + 1 if last else 1
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "rollnum": next_roll,
+        "name": student_name,
+        "name_key": normalized,
+        "password": get_password_hash("12345678"),
+        "created_at": now,
+        "updated_at": now,
+    }
+    db.students.insert_one(doc)
+    return doc
+
+
+def _extract_total_marks(result: dict):
+    if not isinstance(result, dict):
+        return None
+    if isinstance(result.get("total_marks"), (int, float)):
+        return float(result["total_marks"])
+    if isinstance(result.get("marks"), (int, float)):
+        return float(result["marks"])
+    return None
+
+
+def _upsert_classroom_student(teacher_id, teacher_email, session_id, student_doc, result):
+    now = datetime.now(timezone.utc).isoformat()
+    total_marks = _extract_total_marks(result)
+    db.classroom_students.update_one(
+        {
+            "teacher_id": teacher_id,
+            "teacher_email": teacher_email,
+            "rollnum": student_doc["rollnum"],
+        },
+        {
+            "$set": {
+                "name": student_doc.get("name"),
+                "name_key": student_doc.get("name_key"),
+                "updated_at": now,
+            },
+            "$setOnInsert": {
+                "created_at": now,
+            },
+            "$push": {
+                "history": {
+                    "session_id": session_id,
+                    "marks": total_marks,
+                    "captured_at": now,
+                }
+            },
+        },
+        upsert=True,
+    )
+
+
 def unzip(path):
     folder = path.replace(".zip", "")
     os.makedirs(folder, exist_ok=True)
@@ -43,9 +115,14 @@ def process_session(session_id, file_location):
     teacher_model_answer = session.get("teacher_model_answer", "")
     question_paper = session.get("question_paper", "")
     is_handwritten = preferences.get("is_handwritten", False)
+    teacher_id = session.get("teacher_id")
+    teacher_email = session.get("teacher_email")
+    session_rollnums = set()
 
     for pdf in pdf_files:
         student_name = os.path.basename(pdf).replace(".pdf", "")
+        student_doc = _ensure_student_record(student_name)
+        session_rollnums.add(student_doc["rollnum"])
         if is_handwritten:
             extracted_data = extract_text_from_pdf(pdf)
             text = " ".join([page["text"] for page in extracted_data])
@@ -58,10 +135,13 @@ def process_session(session_id, file_location):
             db.results.insert_one({
                 "session_id": session_id,
                 "student_name": student_name,
+                "student_rollnum": student_doc["rollnum"],
+                "student_name_key": student_doc["name_key"],
                 "pdf_file": pdf,
                 "answer_text": text,
                 "result": result
             })
+            _upsert_classroom_student(teacher_id, teacher_email, session_id, student_doc, result)
             
         elif correction_mode == "LLM":
             print(f"Processing {pdf} with LLM")
@@ -69,10 +149,13 @@ def process_session(session_id, file_location):
             db.results.insert_one({
                 "session_id": session_id,
                 "student_name": student_name,
+                "student_rollnum": student_doc["rollnum"],
+                "student_name_key": student_doc["name_key"],
                 "pdf_file": pdf,
                 "answer_text": text,
                 "result": result
             })
+            _upsert_classroom_student(teacher_id, teacher_email, session_id, student_doc, result)
         else:
             print(f"Unknown correction mode: {correction_mode}")
             return {
@@ -103,7 +186,7 @@ def process_session(session_id, file_location):
 
     db.sessions.update_one(
         {"session_id": session_id},
-        {"$set": {"status": "processed"}}
+        {"$set": {"status": "processed", "student_rollnums": sorted(session_rollnums)}}
         )
 
 def check_cheat_in_session(session_id):

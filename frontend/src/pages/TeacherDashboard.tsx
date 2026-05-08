@@ -10,6 +10,7 @@ import { ScriptUploadsView } from '../components/teacher-dashboard/ScriptUploads
 import { AnalyticsView } from '../components/teacher-dashboard/AnalyticsView';
 import { QCPView } from '../components/teacher-dashboard/QCPView';
 import { OmiView } from '../components/teacher-dashboard/OmiView';
+import { MyClassView } from '../components/teacher-dashboard/MyClassView';
 import {
   createTeacherSession,
   getTeacherSession,
@@ -18,6 +19,8 @@ import {
   processTeacherSession,
   uploadTeacherSessionZip,
   deleteTeacherSession,
+  getMyClassStudents,
+  getMyClassStudentDetail,
 } from '../lib/teacherDashboardApi';
 import type {
   DashboardView,
@@ -26,6 +29,8 @@ import type {
   TeacherSessionSummary,
   ZipInspection,
   QCPFormState,
+  ClassroomStudent,
+  ClassroomStudentDetailResponse,
 } from '../types/teacherDashboard';
 
 const defaultQCPFormState = (): QCPFormState => ({
@@ -119,6 +124,11 @@ export const TeacherDashboard = () => {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadSuccess, setUploadSuccess] = useState('');
+  const [classStudents, setClassStudents] = useState<ClassroomStudent[]>([]);
+  const [selectedRollnum, setSelectedRollnum] = useState<number | null>(null);
+  const [selectedStudentDetail, setSelectedStudentDetail] = useState<ClassroomStudentDetailResponse | null>(null);
+  const [isClassLoading, setIsClassLoading] = useState(false);
+  const [classError, setClassError] = useState('');
 
 
   const isDraftMode = activeView === 'evaluation-setup' && !selectedSessionId;
@@ -282,6 +292,37 @@ export const TeacherDashboard = () => {
 
     setUploadError('');
     setActiveView(view);
+  };
+
+  useEffect(() => {
+    if (activeView !== 'my-class') {
+      return;
+    }
+    const loadClass = async () => {
+      setClassError('');
+      try {
+        const data = await getMyClassStudents();
+        setClassStudents(data);
+      } catch (error) {
+        setClassError(getErrorMessage(error, 'Unable to load class students.'));
+      }
+    };
+    void loadClass();
+  }, [activeView]);
+
+  const handleSelectClassStudent = async (rollnum: number) => {
+    setSelectedRollnum(rollnum);
+    setIsClassLoading(true);
+    setClassError('');
+    try {
+      const detail = await getMyClassStudentDetail(rollnum);
+      setSelectedStudentDetail(detail);
+    } catch (error) {
+      setSelectedStudentDetail(null);
+      setClassError(getErrorMessage(error, 'Unable to load student history.'));
+    } finally {
+      setIsClassLoading(false);
+    }
   };
 
   const handleFormChange = <K extends keyof EvaluationSetupFormState>(field: K, value: EvaluationSetupFormState[K]) => {
@@ -564,6 +605,17 @@ export const TeacherDashboard = () => {
 
           {activeView === 'omi' ? (
             <OmiView />
+          ) : null}
+
+          {activeView === 'my-class' ? (
+            <MyClassView
+              students={classStudents}
+              selectedRollnum={selectedRollnum}
+              selectedDetail={selectedStudentDetail}
+              isLoading={isClassLoading}
+              error={classError}
+              onSelectStudent={handleSelectClassStudent}
+            />
           ) : null}
         </main>
       </div>

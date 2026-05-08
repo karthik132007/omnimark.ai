@@ -12,6 +12,7 @@ import {
   Upload,
   Trash2,
   Sparkles,
+  Users,
 } from 'lucide-react';
 import { useState } from 'react';
 import type { DashboardView, TeacherSessionSummary } from '../../types/teacherDashboard';
@@ -131,6 +132,19 @@ export const DashboardSidebar = ({
         <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
         <BrainCircuit className={`h-4 w-4 relative z-10 ${activeView === 'omi' ? 'text-indigo-400' : 'text-indigo-500/70 group-hover:text-indigo-400'}`} />
         <span className="relative z-10">Omi Assistant</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onSetActiveView('my-class')}
+        className={`mx-1 mb-4 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] font-medium transition ${
+          activeView === 'my-class'
+            ? 'bg-white/[0.1] text-white'
+            : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'
+        }`}
+      >
+        <Users className="h-4 w-4 text-cyan-400" />
+        My Class
       </button>
 
       {/* ─── New Session Button ─── */}

@@ -21,6 +21,8 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       localStorage.removeItem('role');
       localStorage.removeItem('user_email');
+      localStorage.removeItem('student_rollnum');
+      localStorage.removeItem('student_name');
     }
     return Promise.reject(error);
   },

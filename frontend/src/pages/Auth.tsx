@@ -208,6 +208,13 @@ export const Auth = () => {
                   ? 'Teachers and universities can both sign in here. You will be routed automatically to the correct dashboard after login.'
                   : 'University registration creates the institution account first, then signs you in automatically and routes you to the university dashboard. Teacher accounts are added by the university admin.'}
               </div>
+
+              <div className="mt-3 text-sm text-slate-600">
+                Student?{' '}
+                <Link to="/student-auth" className="font-semibold text-slate-900 underline">
+                  Go to student login
+                </Link>
+              </div>
             </div>
 
             <div className="flex items-center">

@@ -1,0 +1,112 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import type { SessionResult } from '../types/teacherDashboard';
+import { getStudentResults, requestStudentReevaluation } from '../lib/studentApi';
+
+const marksText = (item: SessionResult) => {
+  const result = item.result as { total_marks?: number; marks?: number };
+  if (typeof result.total_marks === 'number') return result.total_marks.toFixed(2);
+  if (typeof result.marks === 'number') return result.marks.toFixed(2);
+  return 'N/A';
+};
+
+export const StudentDashboard = () => {
+  const navigate = useNavigate();
+  const [rows, setRows] = useState<SessionResult[]>([]);
+  const [name, setName] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [reasonBySession, setReasonBySession] = useState<Record<string, string>>({});
+  const [statusMsg, setStatusMsg] = useState('');
+
+  const rollnum = useMemo(() => Number(localStorage.getItem('student_rollnum') || 0), []);
+
+  useEffect(() => {
+    if (localStorage.getItem('role') !== 'student' || !rollnum) {
+      navigate('/student-auth');
+      return;
+    }
+
+    const load = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const data = await getStudentResults(rollnum);
+        setRows(data.results);
+        setName(data.student.name);
+      } catch (err) {
+        setError('Unable to load results.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void load();
+  }, [navigate, rollnum]);
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('student_rollnum');
+    localStorage.removeItem('student_name');
+    navigate('/student-auth');
+  };
+
+  const submitReevaluation = async (sessionId: string) => {
+    setStatusMsg('');
+    try {
+      const reason = reasonBySession[sessionId]?.trim() || 'Please reevaluate this result.';
+      await requestStudentReevaluation(rollnum, sessionId, reason);
+      setStatusMsg(`Reevaluation request submitted for ${sessionId}`);
+    } catch {
+      setStatusMsg(`Failed to submit reevaluation request for ${sessionId}`);
+    }
+  };
+
+  return (
+    <div className="page-shell min-h-screen px-4 py-6">
+      <div className="mx-auto max-w-5xl space-y-4">
+        <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">Student Dashboard</h1>
+            <p className="text-sm text-slate-600">{name || 'Student'} | Roll #{rollnum}</p>
+          </div>
+          <button onClick={logout} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Logout</button>
+        </div>
+
+        {statusMsg ? <p className="rounded-lg bg-cyan-50 px-3 py-2 text-sm text-cyan-700">{statusMsg}</p> : null}
+        {error ? <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
+        {loading ? <p className="text-sm text-slate-600">Loading...</p> : null}
+
+        {!loading ? (
+          <div className="space-y-3">
+            {rows.map((row) => (
+              <div key={`${row.session_id}-${row.student_name}`} className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <p className="text-sm"><span className="font-semibold">Session:</span> {row.session_id}</p>
+                  <p className="text-sm"><span className="font-semibold">Name on PDF:</span> {row.student_name}</p>
+                  <p className="text-sm"><span className="font-semibold">Marks:</span> {marksText(row)}</p>
+                </div>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    value={reasonBySession[row.session_id] ?? ''}
+                    onChange={(e) => setReasonBySession((cur) => ({ ...cur, [row.session_id]: e.target.value }))}
+                    placeholder="Reason for reevaluation"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  />
+                  <button
+                    onClick={() => submitReevaluation(row.session_id)}
+                    className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900"
+                  >
+                    Request Reevaluation
+                  </button>
+                </div>
+              </div>
+            ))}
+            {!rows.length ? <p className="text-sm text-slate-600">No results found yet.</p> : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+};

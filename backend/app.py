@@ -94,6 +94,9 @@ def resolve_teacher_identity(current_user: dict | None, teacher_email: str | Non
 def resolve_teacher_email(current_user: dict, teacher_email: str | None = None):
     return resolve_teacher_identity(current_user, teacher_email)["email"]
 
+def _normalize_student_name(name: str):
+    return " ".join(str(name or "").strip().lower().split())
+
 def get_authorized_session(session_id: str, current_user: dict | None, teacher_email: str | None = None):
     session = db.sessions.find_one({"session_id": session_id})
     if session is None:
@@ -349,6 +352,93 @@ def get_session_results(
     get_authorized_session(session_id, current_user, teacher_email)
     results = list(db.results.find({"session_id": session_id}, {"_id": 0}))
     return results
+
+@app.get("/teacher/my-class")
+def get_my_class_students(
+    teacher_email: str | None = None,
+    current_user: dict | None = Depends(get_optional_current_user),
+):
+    teacher = resolve_teacher_identity(current_user, teacher_email)
+    query = {"teacher_email": teacher["email"]}
+    if teacher.get("id"):
+        query["$or"] = [{"teacher_id": teacher.get("id")}, {"teacher_id": {"$exists": False}}]
+    students = list(
+        db.classroom_students.find(
+            query,
+            {"_id": 0, "rollnum": 1, "name": 1, "name_key": 1, "history": 1, "updated_at": 1},
+        ).sort("rollnum", 1)
+    )
+    return students
+
+@app.get("/teacher/my-class/{rollnum}")
+def get_my_class_student_detail(
+    rollnum: int,
+    teacher_email: str | None = None,
+    current_user: dict | None = Depends(get_optional_current_user),
+):
+    teacher = resolve_teacher_identity(current_user, teacher_email)
+    class_student = db.classroom_students.find_one(
+        {"teacher_email": teacher["email"], "rollnum": rollnum},
+        {"_id": 0},
+    )
+    if class_student is None:
+        raise HTTPException(status_code=404, detail="Student not found in this class")
+
+    result_rows = list(
+        db.results.find(
+            {"student_rollnum": rollnum},
+            {"_id": 0, "session_id": 1, "student_name": 1, "student_rollnum": 1, "result": 1},
+        )
+    )
+    teacher_session_ids = {
+        row.get("session_id")
+        for row in db.sessions.find(
+            _teacher_session_query(teacher["email"], teacher.get("id")),
+            {"_id": 0, "session_id": 1},
+        )
+    }
+    result_rows = [row for row in result_rows if row.get("session_id") in teacher_session_ids]
+    result_rows.sort(key=lambda x: x.get("session_id", ""))
+    return {
+        "student": class_student,
+        "results": result_rows,
+    }
+
+@app.get("/student/{rollnum}/results")
+def get_student_results_open(rollnum: int):
+    student = db.students.find_one({"rollnum": rollnum}, {"_id": 0, "rollnum": 1, "name": 1, "name_key": 1})
+    if student is None:
+        raise HTTPException(status_code=404, detail="Student not found")
+    rows = list(
+        db.results.find(
+            {"student_rollnum": rollnum},
+            {"_id": 0, "session_id": 1, "student_name": 1, "student_rollnum": 1, "result": 1},
+        )
+    )
+    return {"student": student, "results": rows}
+
+@app.post("/student/{rollnum}/request-reevaluation")
+def request_student_reevaluation_open(
+    rollnum: int,
+    session_id: str = Form(...),
+    reason: str = Form("Please reevaluate this result."),
+):
+    student = db.students.find_one({"rollnum": rollnum}, {"_id": 0, "rollnum": 1, "name": 1})
+    if student is None:
+        raise HTTPException(status_code=404, detail="Student not found")
+    result_row = db.results.find_one({"session_id": session_id, "student_rollnum": rollnum}, {"_id": 0, "result": 1})
+    if result_row is None:
+        raise HTTPException(status_code=404, detail="Result not found for this session")
+    doc = {
+        "rollnum": rollnum,
+        "student_name": student.get("name"),
+        "session_id": session_id,
+        "reason": reason,
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    db.student_requests.insert_one(doc)
+    return {"message": "Reevaluation request submitted", "request": doc}
 
 @app.post("/session/{session_id}/student/{student_name}/reevaluate")
 def reevaluate_student(
