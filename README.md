@@ -36,13 +36,13 @@ Primary users:
 
 
 ### Dashboard Overview
-<img src="media/dashbord.png" alt="Dashboard Overview" width="760" />
+<img src="media/dashbord.png" alt="Dashboard Overview" width="500" />
 
 ### Session Setup
-<img src="media/evalution_config_v1.png" alt="Session Setup" width="760" />
+<img src="media/evalution_config_v1.png" alt="Session Setup" width="500" />
 
 ### Analytics and OMI Insights
-<img src="media/evalution_analysis.png" alt="Analytics" width="760" />
+<img src="media/evalution_analysis.png" alt="Analytics" width="500" />
 
 ### Analytics and OMI Insights
 <img src="media/omi.png" alt="OMI" width="760" />
