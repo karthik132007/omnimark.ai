@@ -36,16 +36,16 @@ Primary users:
 
 
 ### Dashboard Overview
-![Dashboard Overview](media/dashbord.png)
+<img src="media/dashbord.png" alt="Dashboard Overview" width="760" />
 
 ### Session Setup
-![Session Setup](media/evalution_config_v1.png)
+<img src="media/evalution_config_v1.png" alt="Session Setup" width="760" />
 
 ### Analytics and OMI Insights
-![Analytics](media/evalution_analysis.png)
+<img src="media/evalution_analysis.png" alt="Analytics" width="760" />
 
 ### Analytics and OMI Insights
-![OMI](media/omi.png)
+<img src="media/omi.png" alt="OMI" width="760" />
 ## Core Capabilities
 
 - Automated answer evaluation with two correction modes:
