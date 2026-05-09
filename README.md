@@ -104,6 +104,11 @@ Core execution model:
 - Background tasks run long processing jobs asynchronously.
 - React frontend provides dashboards and workflow UI.
 
+### System Architecture Overview
+
+<div align="center">
+<img src="media/sys_arch.png" alt="System Architecture" width="95%" />
+</div>
 ## Tech Stack
 
 Backend:

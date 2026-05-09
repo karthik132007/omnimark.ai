@@ -4,59 +4,90 @@
 
 **githubUrl:** (Insert your repository URL here)
 
-**description:** An enterprise-grade, AI-powered academic evaluation platform designed to automate and enhance the grading process for educators. It leverages cutting-edge NLP, LLMs, OCR, and advanced statistical models to provide robust, objective evaluation of student answer sheets, generate question papers, and summarize class performance from a single centralized dashboard.
+**description:** OmniMark AI is an AI-powered academic evaluation platform that helps universities, departments, teachers, and now students manage the full exam-evaluation lifecycle. The platform supports session creation, answer-sheet processing, automated grading, cheat-risk analysis, dashboard insights, question paper generation, and student-side result visibility with reevaluation requests.
 
 ## Functional Requirements
 
 **Authentication & Roles**
-* Register, login, and robust session management via JWT.
-* Role-based access control (Teacher, University Administrator).
-* Secure password hashing with Bcrypt.
+* JWT-based authentication with role-aware access patterns.
+* Role support for University Admin, Teacher, and Student users.
+* Secure password hashing using Bcrypt.
+* Separate student login flow for simplified exam-result access.
+
+**Teacher & University Module**
+* Create and manage evaluation sessions.
+* Upload question paper and teacher model answer.
+* Upload student scripts in bulk (ZIP) and trigger processing.
+* Monitor processing state and fetch session-level results.
+* Access dashboard metrics and OMI AI analysis.
+
+**Student Module (New)**
+* Student login using roll number + password.
+* View personal results across evaluated sessions.
+* Submit reevaluation requests with reasons.
+* Track outcomes through teacher-managed approval/rejection flow.
+
+**Reevaluation Workflow (Expanded)**
+* Teachers can directly reevaluate a student result.
+* Teachers can review student-submitted reevaluation requests.
+* Requests can be approved (triggers reevaluation) or rejected.
+* Reevaluation history is preserved for traceability.
 
 **Automated Answer Evaluation**
-* **NLP Mode:** Rapid grading using semantic similarity, keyword matching, and length comparisons for textual answers.
-* **LLM Mode:** Advanced contextual assessment and nuanced grading via sophisticated LLMs via Ollama.
-* Support for uploading and mapping reference answers/marking schemes.
+* **NLP Mode:** Fast deterministic scoring using similarity and linguistic signals.
+* **LLM Mode:** Context-rich grading for nuanced subjective answers.
+* Supports configurable evaluation preferences and optional custom prompts.
 
 **Handwriting & Document Processing**
-* OCR capability (via PaddleOCR) to extract text from scanned, handwritten student submissions (PDF/Images).
+* OCR pipeline for handwritten/scanned answer scripts.
+* PDF text extraction fallback for non-OCR flows.
 
 **Cheat Detection Engine**
-* Submission analysis using Semantic Similarity, Jaccard Index, Sequence Matching, Rare Overlap (TF-IDF), and Length analysis to identify potential collusion among students.
+* Multi-signal cheat-risk scoring (semantic overlap, lexical similarity, sequence and statistical patterns).
+* Session-level cheating analysis and report retrieval.
 
 **OMI (OmniMark Intelligence) & Analytics**
-* Intelligent insights on classroom performance, identifying strengths and learning gaps.
-* Comprehensive analytics dashboard with visual charts and statistical evaluation.
+* Teacher summary analytics and session-wise metrics.
+* AI-generated interpretation of class performance trends.
 
 **QCP (Question Paper Creator)**
-* Automated generation of university-level exam papers based on reference materials, difficulty levels, and syllabus parameters.
+* AI-assisted question paper generation based on inputs like subject context and constraints.
 
 ## Non-Functional Requirements
-* High accuracy in OCR extraction and AI grading pipelines.
-* Fast NLP evaluation response times; async processing for LLM/OCR heavy lifting via BackgroundTasks.
-* Secure and persistent document storage (MongoDB).
-* Intuitive UI/UX with React 19 and Tailwind CSS 4.
-* Reusable component architecture.
-* Traffic security and user data encryption.
-* Clean and modular codebase.
+* Reliable grading and analytics outputs with reproducible pipelines.
+* Asynchronous processing for heavy OCR/LLM operations.
+* Secure credential handling and role-based endpoint access.
+* Responsive UI with modular React components.
+* Maintainable architecture with clear separation of API, worker logic, and AI engine modules.
 
-**problem_statement:** Educators and academic institutions spend countless hours manually grading examinations, which is labor-intensive, subjective, and prone to human error. Furthermore, identifying collusion in large cohorts and generating balanced question papers requires significant effort that could be better spent on actual instruction.
+**problem_statement:** Manual evaluation at institutional scale is time-consuming and inconsistent. Educators also need tooling for cheating analysis, analytics-driven interventions, and transparent reevaluation. Students need direct visibility into outcomes and a structured way to request correction review.
 
-**proposed_solution:** A full-stack AI evaluation platform combining a React 19 + TypeScript frontend with a FastAPI backend that orchestrates an intelligent core Engine. It leverages PaddleOCR, Sentence Transformers, and LLMs (Ollama) to automate grading, auto-generate exams, provide actionable academic insights, and detect cheating via a seamless web dashboard.
+**proposed_solution:** OmniMark AI provides a full-stack AI evaluation system where teachers and universities can automate grading and analysis, while students can securely access marks and request reevaluation. The backend orchestrates OCR, NLP/LLM grading, and analytics, while the frontend offers dedicated dashboards for each actor.
 
-**technologies_used:** React 19, TypeScript, Tailwind CSS 4, Recharts, Vite 6, Axios, Lucide-React, Framer Motion, FastAPI, Python, MongoDB (pymongo), JWT, Pydantic, Ollama (LLM), PaddleOCR, pdf2image, NLTK, Sentence-Transformers, Scikit-learn, Pandas, NumPy.
+**technologies_used:** React 19, TypeScript, Tailwind CSS 4, Vite, Axios, Recharts, FastAPI, Python, MongoDB (pymongo), JWT, Pydantic, Ollama/LLM integration, PaddleOCR, pdf2image, NLTK, Sentence-Transformers, Scikit-learn, Pandas, NumPy.
 
-**system_architecture:** Three-tier architecture consisting of a React SPA frontend communicating with a FastAPI REST backend. The backend manages MongoDB data operations and orchestrates heavy AI workloads asynchronously. The dedicated ML "Engine" subsystem houses modules for NLP grading, LLM interaction, OCR document extraction, cheat detection clustering, question generation, and exploratory data analysis.
+**system_architecture:** Three-tier architecture with a React frontend, FastAPI orchestration layer, and MongoDB persistence. A dedicated `Engine` layer provides OCR, grading (NLP/LLM), cheat detection, dashboard statistics, OMI insights, and QCP generation. Background tasks/process workers handle long-running evaluation jobs.
 
-**in_scope:** Automated grading (NLP and LLM), handwritten text extraction (OCR), statistical cheat detection, real-time analytics dashboards, AI-driven question paper creation, class performance insights, and secure user authentication.
+**in_scope:**
+* Session-based exam evaluation for teachers/university.
+* Student authentication and personal result retrieval.
+* Student reevaluation requests and teacher approval/rejection flow.
+* NLP/LLM grading, OCR extraction, cheat analysis, and dashboard insights.
+* Question paper generation support.
 
-**out_scope:** Direct integration with institutional LMS systems (Canvas, Moodle) on day one, predictive student drop-out modeling, real-time student monitoring/proctoring (camera feeds), and grading of complex diagrams/charts or mathematical derivations visually.
+**out_scope:**
+* Deep LMS/LTI integrations in current version.
+* Real-time remote proctoring using live camera streams.
+* Fully reliable diagram/math-expression visual grading in all formats.
+* Offline-first deployment and edge execution.
 
 **future_enhancements:**
-* **Day 1-2:** Export analytics and grading reports to shareable PDFs.
-* **Day 3-5:** Expand LLM capabilities to accurately parse and evaluate mathematical formulas and graphs.
-* **Day 6+:** Build LMS integrations (LTI) to directly pull assignments and push grades to tools like Moodle or Canvas.
+* Add downloadable student mark sheets and reevaluation status tracking timeline.
+* Add notification channels (email/in-app) for reevaluation decisions.
+* Add LMS integration for roster sync and grade pushback.
+* Improve OCR robustness for low-quality scans and multilingual scripts.
+* Add rubric-aware explainable grading reports for teachers and students.
 
-**conclusion:** OmniMark AI is a robust and intelligent ecosystem that transforms academic assessment. It combines strong AI engineering with a polished web frontend. Its primary challenges involve optimizing OCR accuracy across varied handwriting styles, scaling LLM inferences cost-effectively, and refining the cheat detection thresholds to prevent false positives while remaining highly accurate.
+**conclusion:** OmniMark AI now goes beyond evaluator tooling by including a student-facing academic transparency loop. With teacher/university workflows, AI-assisted grading, analytics, and a structured reevaluation module, the platform is positioned as an end-to-end academic assessment system with strong practical relevance.
 
 **projectType:** AI-SaaS Web Application
