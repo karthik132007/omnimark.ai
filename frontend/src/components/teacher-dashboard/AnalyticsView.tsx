@@ -176,6 +176,12 @@ const NlpAnalytics = ({
                     <td className="px-8 py-4 text-xs font-bold text-slate-400">{i + 1}</td>
                     <td className="px-4 py-4">
                       <div className="font-semibold text-slate-900">{r.student_name}</div>
+                      {r.cheat_detection?.cluster_id ? (
+                        <div className="mt-1 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                          Cluster #{r.cheat_detection.cluster_id}
+                          {r.cheat_detection.cluster_size && r.cheat_detection.cluster_size > 1 ? ` · ${r.cheat_detection.cluster_size} students` : ''}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-4 py-4 text-center">
                       <span className="text-base font-extrabold text-slate-900">{res.marks}</span>
@@ -368,7 +374,15 @@ const LlmAnalytics = ({
                     return (
                       <tr key={r.student_name + i} className="border-b border-slate-50 transition hover:bg-slate-50/80">
                         <td className="px-8 py-4 text-xs font-bold text-slate-400">{i + 1}</td>
-                        <td className="px-4 py-4 font-semibold text-slate-900">{r.student_name}</td>
+                        <td className="px-4 py-4 font-semibold text-slate-900">
+                          <div>{r.student_name}</div>
+                          {r.cheat_detection?.cluster_id ? (
+                            <div className="mt-1 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                              Cluster #{r.cheat_detection.cluster_id}
+                              {r.cheat_detection.cluster_size && r.cheat_detection.cluster_size > 1 ? ` · ${r.cheat_detection.cluster_size} students` : ''}
+                            </div>
+                          ) : null}
+                        </td>
                         <td className="px-4 py-4 text-center font-extrabold text-slate-900">{res.total_marks}</td>
                         <td className="px-4 py-4 text-center">
                           <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${perfTone}`}>
@@ -1007,7 +1021,7 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
         ) : null}
 
         {cheatReport ? (
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid gap-3 sm:grid-cols-4">
             <div className="rounded-xl bg-slate-50 px-4 py-3">
               <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Flagged Pairs</div>
               <div className="mt-1 text-xl font-extrabold text-slate-900">{cheatReport.summary.pairs_flagged}</div>
@@ -1017,8 +1031,47 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
               <div className="mt-1 text-xl font-extrabold text-slate-900">{cheatReport.summary.students_flagged}</div>
             </div>
             <div className="rounded-xl bg-slate-50 px-4 py-3">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Clusters Flagged</div>
+              <div className="mt-1 text-xl font-extrabold text-slate-900">{cheatReport.summary.clusters_flagged}</div>
+            </div>
+            <div className="rounded-xl bg-slate-50 px-4 py-3">
               <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Highest Pair Score</div>
               <div className="mt-1 text-xl font-extrabold text-slate-900">{Math.round(cheatReport.summary.highest_pair_score * 100)}%</div>
+            </div>
+          </div>
+        ) : null}
+
+        {cheatReport?.clusters?.length ? (
+          <div className="mt-4 rounded-xl border border-sky-100 bg-sky-50/60 px-4 py-4">
+            <div className="text-[11px] font-black uppercase tracking-widest text-sky-700">Similarity Clusters</div>
+            <div className="mt-3 grid gap-3 lg:grid-cols-2">
+              {cheatReport.clusters.slice(0, 4).map((cluster) => (
+                <div key={cluster.cluster_id} className="rounded-2xl border border-white bg-white px-4 py-3 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-bold text-slate-900">Cluster #{cluster.cluster_id}</div>
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${cluster.suspicious ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                      {cluster.risk_level}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-xs text-slate-600">
+                    {cluster.student_names.join(', ')}
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-[11px] text-slate-500">
+                    <div>
+                      <div className="font-bold uppercase tracking-widest text-slate-400">Size</div>
+                      <div className="mt-1 font-semibold text-slate-800">{cluster.size}</div>
+                    </div>
+                    <div>
+                      <div className="font-bold uppercase tracking-widest text-slate-400">Max Pair</div>
+                      <div className="mt-1 font-semibold text-slate-800">{Math.round(cluster.max_pair_score * 100)}%</div>
+                    </div>
+                    <div>
+                      <div className="font-bold uppercase tracking-widest text-slate-400">Avg Similarity</div>
+                      <div className="mt-1 font-semibold text-slate-800">{Math.round(cluster.average_similarity * 100)}%</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         ) : null}
@@ -1028,8 +1081,13 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
             <div className="text-[11px] font-black uppercase tracking-widest text-amber-700">Top Suspicious Pairs</div>
             <div className="mt-2 space-y-1">
               {cheatReport.flagged_pairs.slice(0, 3).map((pair) => (
-                <div key={`${pair.student_1}-${pair.student_2}`} className="text-xs font-semibold text-amber-800">
-                  {pair.student_1} vs {pair.student_2} - {Math.round(pair.score * 100)}% ({pair.risk_level})
+                <div key={`${pair.student_1}-${pair.student_2}`} className="flex flex-wrap items-center gap-2 text-xs font-semibold text-amber-800">
+                  <span>{pair.student_1} vs {pair.student_2} - {Math.round(pair.score * 100)}% ({pair.risk_level})</span>
+                  {pair.cluster_id ? (
+                    <span className="inline-flex rounded-full bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700">
+                      Cluster #{pair.cluster_id}
+                    </span>
+                  ) : null}
                 </div>
               ))}
             </div>

@@ -257,9 +257,10 @@ Default local endpoints:
 ## API Reference (High-Level)
 
 Authentication:
-- `POST /auth/register`
+- `POST /auth/univ/register`
 - `POST /auth/login`
-- `GET /auth/me`
+- `POST /auth/student/login`
+- `GET /teachers/me`
 
 Dashboard and insights:
 - `GET /dashboard/teacher_stats`
@@ -280,6 +281,8 @@ Session management:
 Cheating analysis:
 - `POST /session/{session_id}/cheat_detection`
 - `GET /session/{session_id}/cheat_report`
+
+The cheat report combines pairwise similarity scoring with answer clustering so teachers can inspect suspicious pairs and the broader similarity groups they belong to.
 
 Teacher/student and re-evaluation:
 - `GET /teacher/my-class`
@@ -305,7 +308,7 @@ Health check:
 4. Worker extracts text (OCR if handwritten mode is enabled).
 5. Grading engine computes score + feedback.
 6. Session results are persisted.
-7. Cheating report is generated.
+7. Cheating report is generated with pairwise scoring and answer clustering.
 8. Teacher reviews dashboard and OMI insights.
 
 

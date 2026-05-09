@@ -43,6 +43,10 @@ export default defineConfig([
 ])
 ```
 
+## OmniMark Frontend Notes
+
+The teacher analytics dashboard includes cluster-aware cheat detection summaries, pairwise similarity flags, and student-level cluster badges sourced from the backend report.
+
 You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
 ```js

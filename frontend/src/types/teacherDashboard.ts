@@ -96,6 +96,8 @@ export interface SessionResult {
     max_pair_score?: number;
     flagged_pairs?: number;
     matched_with?: string[];
+    cluster_id?: number | null;
+    cluster_size?: number;
   };
   result: NlpResult | LlmResult;
 }
@@ -106,6 +108,7 @@ export interface CheatDetectionPair {
   score: number;
   risk_level: string;
   suspicious: boolean;
+  cluster_id?: number | null;
   signals: {
     semantic: number;
     token_overlap: number;
@@ -115,6 +118,21 @@ export interface CheatDetectionPair {
   };
 }
 
+export interface CheatDetectionCluster {
+  cluster_id: number;
+  dbscan_label: number;
+  student_names: string[];
+  size: number;
+  average_similarity: number;
+  max_similarity: number;
+  average_pair_score: number;
+  max_pair_score: number;
+  suspicious_pairs: number;
+  suspicious: boolean;
+  risk_level: string;
+  answer_preview: string;
+}
+
 export interface CheatDetectionStudent {
   student_name: string;
   max_pair_score: number;
@@ -122,6 +140,8 @@ export interface CheatDetectionStudent {
   risk_level: string;
   flagged_pairs: number;
   matched_with: string[];
+  cluster_id?: number | null;
+  cluster_size?: number;
 }
 
 export interface CheatDetectionReport {
@@ -131,10 +151,13 @@ export interface CheatDetectionReport {
   flagged_pairs: CheatDetectionPair[];
   pairs: CheatDetectionPair[];
   students: CheatDetectionStudent[];
+  clusters: CheatDetectionCluster[];
   summary: {
     students_flagged: number;
     pairs_flagged: number;
     highest_pair_score: number;
+    clusters_flagged: number;
+    largest_cluster_size: number;
   };
 }
 

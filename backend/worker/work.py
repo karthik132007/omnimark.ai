@@ -250,6 +250,8 @@ def check_cheat_in_session(session_id):
                             "max_pair_score": student_report.get("max_pair_score"),
                             "flagged_pairs": student_report.get("flagged_pairs", 0),
                             "matched_with": student_report.get("matched_with", []),
+                            "cluster_id": student_report.get("cluster_id"),
+                            "cluster_size": student_report.get("cluster_size", 1),
                         }
                     }
                 },

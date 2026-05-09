@@ -44,6 +44,7 @@
 
 **Cheat Detection Engine**
 * Multi-signal cheat-risk scoring (semantic overlap, lexical similarity, sequence and statistical patterns).
+* Cluster-aware grouping of answers so suspicious similarity bands can be reviewed as cohorts, not just isolated pairs.
 * Session-level cheating analysis and report retrieval.
 
 **OMI (OmniMark Intelligence) & Analytics**
@@ -56,17 +57,19 @@
 ## Non-Functional Requirements
 * Reliable grading and analytics outputs with reproducible pipelines.
 * Asynchronous processing for heavy OCR/LLM operations.
-* Secure credential handling and role-based endpoint access.
+* Secure credential handling with role-based endpoint access for core authenticated flows.
 * Responsive UI with modular React components.
 * Maintainable architecture with clear separation of API, worker logic, and AI engine modules.
 
 **problem_statement:** Manual evaluation at institutional scale is time-consuming and inconsistent. Educators also need tooling for cheating analysis, analytics-driven interventions, and transparent reevaluation. Students need direct visibility into outcomes and a structured way to request correction review.
 
-**proposed_solution:** OmniMark AI provides a full-stack AI evaluation system where teachers and universities can automate grading and analysis, while students can securely access marks and request reevaluation. The backend orchestrates OCR, NLP/LLM grading, and analytics, while the frontend offers dedicated dashboards for each actor.
+**proposed_solution:** OmniMark AI provides a full-stack AI evaluation system where teachers and universities can automate grading and analysis, while students can access marks and request reevaluation through both authenticated and compatibility endpoint flows. The backend orchestrates OCR, NLP/LLM grading, and analytics, while the frontend offers dedicated dashboards for each actor.
 
 **technologies_used:** React 19, TypeScript, Tailwind CSS 4, Vite, Axios, Recharts, FastAPI, Python, MongoDB (pymongo), JWT, Pydantic, Ollama/LLM integration, PaddleOCR, pdf2image, NLTK, Sentence-Transformers, Scikit-learn, Pandas, NumPy.
 
 **system_architecture:** Three-tier architecture with a React frontend, FastAPI orchestration layer, and MongoDB persistence. A dedicated `Engine` layer provides OCR, grading (NLP/LLM), cheat detection, dashboard statistics, OMI insights, and QCP generation. Background tasks/process workers handle long-running evaluation jobs.
+
+The cheat detection pipeline now emits pairwise scores plus answer clusters, and the teacher analytics UI renders both views.
 
 **in_scope:**
 * Session-based exam evaluation for teachers/university.
