@@ -2,7 +2,7 @@
 
 **Name:** OmniMark AI
 
-**githubUrl:** (Insert your repository URL here)
+**githubUrl:** [GitHub](https://github.com/karthik132007/omnimark.ai)
 
 **description:** OmniMark AI is an AI-powered academic evaluation platform that helps universities, departments, teachers, and now students manage the full exam-evaluation lifecycle. The platform supports session creation, answer-sheet processing, automated grading, cheat-risk analysis, dashboard insights, question paper generation, and student-side result visibility with reevaluation requests.
 
