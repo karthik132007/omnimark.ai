@@ -6,12 +6,13 @@ from datetime import datetime, timezone
 from bson.objectid import ObjectId
 from Engine.Dashbord_data.eda import get_teacher_dashboard_summary, get_teacher_stats, get_session_stats
 from Engine.OMI.omi import explain_stats
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from Engine.cheat_detection.main import check_cheat
 from Engine.grade.nlp import Correct_NLP
 from backend.db import db
 from backend.auth import get_current_user, get_optional_current_user, normalize_email, router as auth_router
+from backend.config import get_app_env, get_cors_allow_origins, validate_required_env
 from backend.schemas import EvaluationPreferences,QuestionParerPrefrences
 from backend.worker.files import save_upload_file
 from Engine.QCP.qcp import set_paper
@@ -24,15 +25,25 @@ from backend.worker.work import (
 app = FastAPI()
 app.title = "Omnimark Ai"
 
+_app_env = get_app_env()
+_cors_origins = get_cors_allow_origins()
+_allow_all_origins = _app_env != "production" and not _cors_origins
+_resolved_cors_origins = ["*"] if _allow_all_origins else _cors_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow all origins for dev
-    allow_credentials=True,
+    allow_origins=_resolved_cors_origins,
+    allow_credentials=not _allow_all_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(auth_router)
+
+
+@app.on_event("startup")
+def startup_validate_config():
+    validate_required_env()
 
 @app.get("/health")
 def health_check():
@@ -67,6 +78,15 @@ def _teacher_session_query(email: str, teacher_id: str | None = None):
             }
         )
     return {"$or": clauses}
+
+
+def _build_pagination_meta(total: int, offset: int, limit: int):
+    return {
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "has_more": (offset + limit) < total,
+    }
 
 def resolve_teacher_identity(current_user: dict | None, teacher_email: str | None = None):
     if teacher_email:
@@ -289,11 +309,15 @@ def create_session(
 @app.get("/sessions")
 def list_sessions(
     teacher_email: str | None = None,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
     current_user: dict | None = Depends(get_optional_current_user),
 ):
     teacher = resolve_teacher_identity(current_user, teacher_email)
+    query = _teacher_session_query(teacher["email"], teacher.get("id"))
+    total = db.sessions.count_documents(query)
     sessions = db.sessions.find(
-        _teacher_session_query(teacher["email"], teacher.get("id")),
+        query,
         {
             "_id": 0,
             "session_id": 1,
@@ -302,8 +326,11 @@ def list_sessions(
             "correction_mode": 1,
             "created_at": 1,
         },
-    )
-    return list(sessions)
+    ).sort("created_at", -1).skip(offset).limit(limit)
+    return {
+        "items": list(sessions),
+        "pagination": _build_pagination_meta(total=total, offset=offset, limit=limit),
+    }
 
 
 @app.get("/session/{session_id}")
@@ -397,19 +424,25 @@ def get_session_results(
 @app.get("/teacher/my-class")
 def get_my_class_students(
     teacher_email: str | None = None,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
     current_user: dict | None = Depends(get_optional_current_user),
 ):
     teacher = resolve_teacher_identity(current_user, teacher_email)
     query = {"teacher_email": teacher["email"]}
     if teacher.get("id"):
         query["$or"] = [{"teacher_id": teacher.get("id")}, {"teacher_id": {"$exists": False}}]
+    total = db.classroom_students.count_documents(query)
     students = list(
         db.classroom_students.find(
             query,
             {"_id": 0, "rollnum": 1, "name": 1, "name_key": 1, "history": 1, "updated_at": 1},
-        ).sort("rollnum", 1)
+        ).sort("rollnum", 1).skip(offset).limit(limit)
     )
-    return students
+    return {
+        "items": students,
+        "pagination": _build_pagination_meta(total=total, offset=offset, limit=limit),
+    }
 
 @app.get("/teacher/my-class/{rollnum}")
 def get_my_class_student_detail(
@@ -515,6 +548,8 @@ def reevaluate_student(
 def get_teacher_reevaluation_requests(
     status: str | None = None,
     teacher_email: str | None = None,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
     current_user: dict | None = Depends(get_optional_current_user),
 ):
     teacher = resolve_teacher_identity(current_user, teacher_email)
@@ -528,12 +563,16 @@ def get_teacher_reevaluation_requests(
     query = {"session_id": {"$in": session_ids}}
     if status:
         query["status"] = status
-    rows = list(db.student_requests.find(query).sort("created_at", -1))
+    total = db.student_requests.count_documents(query)
+    rows = list(db.student_requests.find(query).sort("created_at", -1).skip(offset).limit(limit))
     safe_rows = []
     for row in rows:
         row["_id"] = str(row["_id"])
         safe_rows.append(row)
-    return safe_rows
+    return {
+        "items": safe_rows,
+        "pagination": _build_pagination_meta(total=total, offset=offset, limit=limit),
+    }
 
 @app.post("/teacher/reevaluation-requests/{request_id}/approve")
 def approve_reevaluation_request(

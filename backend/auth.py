@@ -10,12 +10,13 @@ import bcrypt
 from pydantic import BaseModel, EmailStr
 
 from backend.db import db
+from backend.config import get_jwt_secret
 
 from bson.objectid import ObjectId
 
 router = APIRouter()
 
-SECRET_KEY = os.getenv("SECRET_KEY", "super_secret_key_change_me")
+SECRET_KEY = get_jwt_secret()
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 

@@ -1,10 +1,13 @@
 from Engine.helpers import make_prompt, make_reevaluate_prompt
 import json
 from Engine.call_llm import grade_via_llm
+from backend.config import get_llm_default_model, get_llm_reevaluate_model
+
+
 def LLM_Grade(question_paper, teacher_model_answer, student_answer, preferences):
     prompt = make_prompt(question_paper, teacher_model_answer, student_answer, preferences)
-    llm_provider = preferences.get("llm_provider", "api")
-    llm_model = preferences.get("llm_model", "gpt-4o")
+    llm_provider = preferences.get("llm_provider", "ollama")
+    llm_model = preferences.get("llm_model", get_llm_default_model())
     
     # Call LLM API with the prompt and get the response
     llm_response = grade_via_llm(prompt, provider=llm_provider, model=llm_model)
@@ -24,7 +27,7 @@ def LLM_Reevaluate(question_paper, teacher_model_answer, student_answer, prefere
     llm_response = grade_via_llm(
         prompt,
         provider="ollama",
-        model="gpt-oss:120b-cloud",
+        model=get_llm_reevaluate_model(),
         think="medium",
     )
     

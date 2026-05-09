@@ -26,6 +26,16 @@ interface UploadSessionZipOptions {
   onProgress?: (progress: number) => void;
 }
 
+interface PaginatedResponse<T> {
+  items: T[];
+  pagination: {
+    total: number;
+    offset: number;
+    limit: number;
+    has_more: boolean;
+  };
+}
+
 const buildPreferencesPayload = (form: EvaluationSetupFormState) => ({
   exam_type: form.examType,
   language_exam: form.examType === 'Theory' ? form.languageExam : null,
@@ -41,10 +51,10 @@ const resolveTeacherEmail = (teacherEmail?: string) => normalizedEmail(teacherEm
 
 export const listTeacherSessions = async (teacherEmail?: string) => {
   const email = resolveTeacherEmail(teacherEmail);
-  const response = await api.get<TeacherSessionSummary[]>('/sessions', {
+  const response = await api.get<TeacherSessionSummary[] | PaginatedResponse<TeacherSessionSummary>>('/sessions', {
     params: { teacher_email: email },
   });
-  return response.data;
+  return Array.isArray(response.data) ? response.data : response.data.items;
 };
 
 export const getTeacherSession = async (sessionId: string, teacherEmail?: string) => {
@@ -204,10 +214,10 @@ export const getCheatReport = async (sessionId: string, teacherEmail?: string) =
 
 export const getMyClassStudents = async (teacherEmail?: string) => {
   const email = resolveTeacherEmail(teacherEmail);
-  const response = await api.get<ClassroomStudent[]>('/teacher/my-class', {
+  const response = await api.get<ClassroomStudent[] | PaginatedResponse<ClassroomStudent>>('/teacher/my-class', {
     params: { teacher_email: email },
   });
-  return response.data;
+  return Array.isArray(response.data) ? response.data : response.data.items;
 };
 
 export const getMyClassStudentDetail = async (rollnum: number, teacherEmail?: string) => {
@@ -220,10 +230,10 @@ export const getMyClassStudentDetail = async (rollnum: number, teacherEmail?: st
 
 export const getTeacherReevaluationRequests = async (status?: string, teacherEmail?: string) => {
   const email = resolveTeacherEmail(teacherEmail);
-  const response = await api.get<ReevaluationRequest[]>('/teacher/reevaluation-requests', {
+  const response = await api.get<ReevaluationRequest[] | PaginatedResponse<ReevaluationRequest>>('/teacher/reevaluation-requests', {
     params: { teacher_email: email, status },
   });
-  return response.data;
+  return Array.isArray(response.data) ? response.data : response.data.items;
 };
 
 export const approveTeacherReevaluationRequest = async (requestId: string, teacherEmail?: string) => {

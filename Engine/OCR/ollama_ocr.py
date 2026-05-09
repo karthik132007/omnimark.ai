@@ -1,6 +1,7 @@
 import base64
 from Engine.helpers import make_prompt_for_ocr
 import ollama
+from backend.config import get_ollama_ocr_model
 
 def img_to_base64(img_path):
     if not img_path:
@@ -18,7 +19,7 @@ def ocr_with_llm(img_path):
         }
     prompt = make_prompt_for_ocr()
     response = ollama.chat(
-        model="gemma4:31b-cloud",
+        model=get_ollama_ocr_model(),
         messages=[{
             "role": "user",
             "content": prompt,

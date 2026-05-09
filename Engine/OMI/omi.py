@@ -1,11 +1,12 @@
 import json
 import ollama
+from backend.config import get_omi_model
 def greet():
     return "Hello! How's going?"
 
 def explain_stats(stats: dict):
     response = ollama.chat(
-        model="qwen3-coder-next:cloud",
+    model=get_omi_model(),
         messages=[
             {
                 "role": "system",

@@ -1,4 +1,5 @@
 import ollama
+from backend.config import get_qcp_model
 def set_paper(difficulty:str,max_marks:int,no_of_ques:int,course:str,choice_aval:bool,choice_type:str,relavent_docs:str,custom_prompt:str):
     prompt = f"""
     You are a highly experienced university-level question paper setter and subject expert in {course}.
@@ -115,7 +116,7 @@ def set_paper(difficulty:str,max_marks:int,no_of_ques:int,course:str,choice_aval
     - Number of generated questions equals {no_of_ques}.
     """
     response = ollama.chat(
-        model="qwen3-coder-next:cloud",
+      model=get_qcp_model(),
         format="json",
         messages=[
             {

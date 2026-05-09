@@ -10,3 +10,4 @@ sentence-transformers~=5.4.1
 openai~=2.33.0
 ollama 
 pdf2image~=1.17.0
+pytest~=9.0.3

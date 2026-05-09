@@ -1,15 +1,22 @@
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
+from backend.config import get_llm_base_url, get_llm_default_model
 
 load_dotenv()
 
-client = OpenAI(
-    api_key=os.environ.get("LLM_API_KEY"),
-    base_url=os.environ.get("LLM_BASE_URL", "https://api.openai.com/v1")
-)
 
-def grade_via_llm(prompt, provider="ollama", model="gpt-oss:120b-cloud", think=None):
+def _build_openai_client() -> OpenAI:
+    api_key = os.environ.get("LLM_API_KEY") or os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "OpenAI provider requested but no API key found. "
+            "Set LLM_API_KEY/OPENAI_API_KEY or use provider='ollama'."
+        )
+    return OpenAI(api_key=api_key, base_url=get_llm_base_url())
+
+def grade_via_llm(prompt, provider="ollama", model=None, think=None):
+    model = model or get_llm_default_model()
     if provider == "ollama":
         import ollama
         chat_kwargs = {
@@ -25,6 +32,7 @@ def grade_via_llm(prompt, provider="ollama", model="gpt-oss:120b-cloud", think=N
         response = ollama.chat(**chat_kwargs)
         return response['message']['content']
     else:
+        client = _build_openai_client()
         response = client.chat.completions.create(
             model=model,
             messages=[
