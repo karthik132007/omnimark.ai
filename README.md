@@ -106,9 +106,47 @@ Core execution model:
 
 ### System Architecture Overview
 
-<div align="center">
-<img src="media/sys_arch.png" alt="System Architecture" width="95%" />
-</div>
+```text
++------------------+
+|     Frontend     |
+|     (Web/UI)     |
++---------+--------+
+          |
+      HTTP / API
+          |
++---------v--------------------------------------------------+
+|                        Backend                             |
+|                                                            |
+|   +----------------------+      +----------------------+   |
+|   |    Core Backend      |----->|        Worker        |   |
+|   |----------------------|      |----------------------|   |
+|   | - API Handling       |      | - Receives Tasks     |   |
+|   | - Authentication     |      | - Processes Tasks    |   |
+|   | - Database Access    |      | - Communicates       |   |
+|   | - Task Management    |      |   with Engine        |   |
+|   | - Logging            |      | - Returns Results    |   |
+|   +----------------------+      +----------+-----------+   |
+|                                                |           |
++------------------------------------------------|-----------+
+                                                 |
+                                            Send Task
+                                                 |
+                                   +-------------v--------------+
+                                   |         Engine             |
+                                   |      (AI Logic Core)      |
+                                   +-------------+--------------+
+                                                 |
+          +-------------------+------------------+-------------------+-------------------+
+          |                   |                  |                   |                   |
++---------v--------+ +--------v---------+ +------v-------+ +---------v---------+ +-------v--------+
+|      Grade       | | OMI Assistant    | | Cheat Detect | | Dashboard Data    | |       QCP      |
+|------------------| |------------------| |--------------| | Generator          | |----------------|
+| - AI paper       | | - AI support     | | - Detects    | | - Analytics        | | - Generates    |
+|   grading        | | - Query handling | |   malpractice| | - Dashboard data   | |   question     |
+|                  | |                  | |              | |                     | |   papers       |
++------------------+ +------------------+ +--------------+ +---------------------+ +----------------+
+
+```
 ## Tech Stack
 
 Backend:
