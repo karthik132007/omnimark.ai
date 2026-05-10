@@ -64,8 +64,8 @@
 
 ## Non-Functional Requirements
 * Reliable grading and analytics outputs with reproducible pipelines.
-* **Production-Grade Testing & CI/CD:** Rigorous unit, integration, and load testing suite achieving **98.4% backend coverage** and passing all frontend component suites with 0 security vulnerabilities (detailed logs in `test_coverage_report.md`).
-* Asynchronous processing for heavy OCR/LLM operations.
+* **Measured Testing:** Current local verification uses pytest and pytest-cov with **32 passing tests** and **81% measured coverage**. See `test_coverage_report.md` for the actual command output and module-level coverage table.
+* Asynchronous processing for heavy OCR/LLM operations through Celery worker tasks (`celery~=5.4.0`). Local development defaults to SQLite-backed Celery transport; production deployments should use Redis or RabbitMQ via environment configuration.
 * Secure credential handling with role-based endpoint access for core authenticated flows.
 * Responsive UI with modular React components.
 * Maintainable architecture with clear separation of API, worker logic, and AI engine modules.
@@ -74,9 +74,9 @@
 
 **proposed_solution:** OmniMark AI provides a full-stack AI evaluation system where teachers and universities can automate grading and analysis, while students can access marks and request reevaluation through both authenticated and compatibility endpoint flows. The backend orchestrates OCR, NLP/LLM grading, and analytics, while the frontend offers dedicated dashboards for each actor.
 
-**technologies_used:** React 19, TypeScript, Tailwind CSS 4, Vite, Axios, Recharts, FastAPI, Python, MongoDB (pymongo), JWT, Pydantic, Ollama/LLM integration, PaddleOCR, pdf2image, NLTK, Sentence-Transformers, Scikit-learn, Pandas, NumPy.
+**technologies_used:** React 19, TypeScript, Tailwind CSS 4, Vite, Axios, Recharts, FastAPI, Python, MongoDB (pymongo), JWT, Pydantic, Ollama/LLM integration, PaddleOCR, pdf2image, NLTK, Sentence-Transformers, Scikit-learn, Pandas, NumPy, Celery.
 
-**system_architecture:** Three-tier architecture with a React frontend, FastAPI orchestration layer, and MongoDB persistence. A dedicated `Engine` layer provides OCR, grading (NLP/LLM), cheat detection, dashboard statistics, OMI insights, and QCP generation. Background tasks/process workers handle long-running evaluation jobs.
+**system_architecture:** Three-tier architecture with a React frontend, FastAPI orchestration layer, and MongoDB persistence. A dedicated `Engine` layer provides OCR, grading (NLP/LLM), cheat detection, dashboard statistics, OMI insights, and QCP generation. Background tasks/process workers handle long-running evaluation jobs via Celery SQLite-backed broker locally.
 
 The cheat detection pipeline now emits pairwise scores plus answer clusters, and the teacher analytics UI renders both views.
 

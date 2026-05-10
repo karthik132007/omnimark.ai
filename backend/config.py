@@ -8,9 +8,18 @@ def _require_env(name: str) -> str:
     return value
 
 
+def _require_any_env(*names: str) -> str:
+    for name in names:
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+    joined_names = " or ".join(names)
+    raise RuntimeError(f"Missing required environment variable: {joined_names}")
+
+
 def validate_required_env() -> None:
     _require_env("MONGO_URI")
-    _require_env("JWT_SECRET")
+    _require_any_env("JWT_SECRET", "SECRET_KEY")
 
     app_env = get_app_env()
     if app_env == "production":
@@ -31,7 +40,7 @@ def get_cors_allow_origins() -> list[str]:
 
 
 def get_jwt_secret() -> str:
-    return _require_env("JWT_SECRET")
+    return _require_any_env("JWT_SECRET", "SECRET_KEY")
 
 
 def get_mongo_uri() -> str:
@@ -60,3 +69,10 @@ def get_llm_default_model() -> str:
 
 def get_llm_reevaluate_model() -> str:
     return os.getenv("LLM_REEVALUATE_MODEL", get_llm_default_model())
+
+FEATURE_FLAGS = {
+    "generative_synthetic_dataset_augmentation": os.getenv("FEATURE_SYNTHETIC_DATASET", "false").lower() == "true",
+    "self_supervised_handwriting_recognition": os.getenv("FEATURE_SELF_SUPERVISED_HR", "false").lower() == "true",
+    "xai_grading_reports": os.getenv("FEATURE_XAI_REPORTS", "false").lower() == "true",
+    "federated_learning": os.getenv("FEATURE_FEDERATED_LEARNING", "false").lower() == "true",
+}

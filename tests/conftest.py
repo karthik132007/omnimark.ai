@@ -6,6 +6,12 @@ import numpy as np
 import pytest
 
 
+os.environ.setdefault("MONGO_URI", "mongodb://localhost:27017")
+os.environ.setdefault("JWT_SECRET", "test_jwt_secret_with_at_least_32_chars")
+os.environ.setdefault("LLM_BASE_URL", "https://example.invalid/v1")
+os.environ.setdefault("APP_ENV", "test")
+
+
 class _DummySentenceModel:
     def encode(self, texts, normalize_embeddings=False):
         if isinstance(texts, str):
@@ -40,8 +46,4 @@ sys.modules.setdefault("Engine.encoder", encoder_stub)
 
 @pytest.fixture(scope="session", autouse=True)
 def _required_env_for_tests():
-    os.environ.setdefault("MONGO_URI", "mongodb://localhost:27017")
-    os.environ.setdefault("JWT_SECRET", "test_jwt_secret")
-    os.environ.setdefault("LLM_BASE_URL", "https://example.invalid/v1")
-    os.environ.setdefault("APP_ENV", "test")
     yield

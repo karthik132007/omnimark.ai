@@ -2,7 +2,11 @@ from Engine.helpers import make_prompt, make_reevaluate_prompt
 import json
 from Engine.call_llm import grade_via_llm
 from backend.config import get_llm_default_model, get_llm_reevaluate_model
+from Engine.grade.base import AbstractGradingEngine
 
+class LLMGradingEngine(AbstractGradingEngine):
+    def grade(self, question_paper: str, teacher_model_answer: str, student_answer: str, preferences: dict, **kwargs) -> dict:
+        return LLM_Grade(question_paper, teacher_model_answer, student_answer, preferences)
 
 def LLM_Grade(question_paper, teacher_model_answer, student_answer, preferences):
     prompt = make_prompt(question_paper, teacher_model_answer, student_answer, preferences)

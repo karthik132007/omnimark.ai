@@ -11,3 +11,10 @@ openai~=2.33.0
 ollama 
 pdf2image~=1.17.0
 pytest~=9.0.3
+celery~=5.4.0
+sqlalchemy~=2.0.0
+paddleocr~=2.7.3
+paddlepaddle>=3.0.0
+pytest-cov~=6.0.0
+pytest-mock~=3.14.0
+mongomock~=4.1.2

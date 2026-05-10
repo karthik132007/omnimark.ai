@@ -19,12 +19,28 @@ def _teacher_session_filter(teacher_email, teacher_id=None):
         ])
     return {"$or": clauses} if clauses else {"_id": None}
 
+
+def _get_session_marks(session_id, session=None):
+    marks = []
+    try:
+        marks = list(db.results.find({"session_id": session_id}).distinct("marks"))
+    except Exception:
+        marks = []
+
+    if not marks and isinstance(session, dict):
+        raw_marks = session.get("marks", [])
+        if isinstance(raw_marks, list):
+            marks = raw_marks
+
+    return [mark for mark in marks if isinstance(mark, (int, float))]
+
+
 def get_teacher_stats(teacher_email, teacher_id=None):
     sessions = db.sessions.find(_teacher_session_filter(teacher_email, teacher_id))
     sessions_list = list(sessions)
     for session in sessions_list:
         session_id = session["session_id"]
-        marks = db.results.find({"session_id": session_id}).distinct("marks")
+        marks = _get_session_marks(session_id, session)
         session["avg_marks"] = sum(marks) / len(marks) if marks else 0
         session["max_marks"] = max(marks) if marks else 0
         session["min_marks"] = min(marks) if marks else 0
@@ -38,7 +54,7 @@ def get_session_stats(session_id):
     if session is None:
         return {"error": "Session not found"}
     # Assuming session has a field 'marks' which is a list of marks for that session
-    marks = db.results.find({"session_id": session_id}).distinct("marks")
+    marks = _get_session_marks(session_id, session)
     if not marks:
         return {}
     df = pd.DataFrame(marks, columns=["marks"])

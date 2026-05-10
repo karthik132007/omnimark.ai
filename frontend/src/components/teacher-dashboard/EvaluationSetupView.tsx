@@ -378,7 +378,7 @@ export const EvaluationSetupView = ({
                 </div>
               </div>
               <p className="mb-8 text-[12px] leading-relaxed text-slate-600">
-                Based on your parameters, we estimate a <strong className="font-bold text-[#0f172a]">98.4% accuracy</strong> in identifying semantic errors. The complexity level suggests a processing time of <strong className="font-bold text-[#0f172a]">1.2 seconds per script</strong>.
+                Based on your parameters, OmniMark will apply the selected grading rules and report confidence signals after processing. Actual accuracy and processing time depend on script quality, answer length, and the selected grading mode.
               </p>
 
               <div>

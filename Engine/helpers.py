@@ -1,4 +1,4 @@
-from click import prompt
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from Engine.encoder import model
 from nltk.stem import WordNetLemmatizer

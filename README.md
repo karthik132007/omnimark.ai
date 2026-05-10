@@ -31,6 +31,7 @@ Primary users:
 - Teachers and evaluators
 - Department coordinators
 - University administrators
+- Students (for results viewing and reevaluation requests)
 
 ## Photos / Screenshots
 
@@ -73,14 +74,15 @@ Primary users:
 </table>
 
 </div>
+
 ## Core Capabilities
 
 - **Automated AI Evaluation Engine** with dynamic correction modes:
-  - **NLP Mode (Deterministic):** Fast scoring utilizing Sentence Transformers, NLTK-based text preprocessing, and weighted scoring (80% semantic similarity, 15% keyword overlap, 5% length normalization).
+  - **NLP Mode (Deterministic):** Fast scoring utilizing Sentence Transformers (`model.encode`), NLTK-based text preprocessing, and weighted scoring (80% semantic similarity, 15% keyword overlap, 5% length normalization).
   - **LLM Mode (Generative):** Context-rich grading using Ollama-backed LLMs for complex, multi-part subjective answers and nuanced qualitative feedback.
-- **Robust Handwriting & Document Processing:** Advanced OCR pipeline using PaddleOCR and `pdf2image`, coupled with regex-based artifact cleaning algorithms for noisy scanned scripts.
-- **Advanced Cheat Detection Engine:** Employs a multi-signal risk matrix (semantic, lexical, sequence, and rare-overlap) and utilizes **DBSCAN Clustering (eps=0.22, min_samples=2)** on high-dimensional embeddings to identify organized cheating cohorts and suspicious similarity bands. Includes adaptive thresholding to minimize false positives.
-- **Session-Oriented Exam Management:** Asynchronous, worker-driven processing for bulk uploads (ZIP), enabling scalable institutional deployments.
+- **Robust Handwriting & Document Processing:** Advanced OCR pipeline using PaddleOCR and `pdf2image`, coupled with regex-based artifact cleaning algorithms for noisy scanned scripts (e.g. collapsing repeated character artifacts).
+- **Advanced Cheat Detection Engine:** Employs a multi-signal risk matrix (45% Semantic, 20% Lexical Jaccard, 15% Sequence Match, 15% Rare-overlap TF-IDF, 5% Length similarity) and utilizes **DBSCAN Clustering (eps=0.22, min_samples=2)** on high-dimensional embeddings to identify organized cheating cohorts and suspicious similarity bands. Includes adaptive thresholding to minimize false positives.
+- **Session-Oriented Exam Management:** Asynchronous, worker-driven processing for bulk uploads (ZIP), enabling scalable institutional deployments via Celery workers.
 - **OMI (OmniMark Intelligence) Analytics:** AI-generated interpretations of class performance trends, highlighting knowledge gaps using statistical aggregations (NumPy, Pandas).
 - **QCP (Question Paper Creator):** Automated, constraint-based question paper generation optimizing for cognitive load distribution.
 - **Student Transparency & Re-evaluation:** Dedicated student module with result visibility and a structured, traceable re-evaluation request flow for correction disputes.
@@ -104,11 +106,11 @@ Primary users:
 ## Code Quality & Best Practices
 
 OmniMark AI is built with a strong emphasis on maintainability, scalability, and robustness:
-- **Comprehensive Testing & CI/CD Validation:** The codebase maintains an exceptional **98% test coverage** across 200+ backend unit tests and 240+ frontend component tests. Load testing guarantees sub-200ms latency for 10,000 concurrent users, while SonarQube scans confirm 0 security vulnerabilities. For full details, see the [`test_coverage_report.md`](./test_coverage_report.md). This ensures production-level reliability for all AI grading algorithms, cheat detection heuristics, and API endpoints.
+- **Measured Testing:** The backend test suite currently passes with **32 pytest tests** and **81% measured coverage** using `pytest --cov=. --cov-report=term-missing`. The report is intentionally based on actual local output, not projected or synthetic numbers. For full details, see [`test_coverage_report.md`](./test_coverage_report.md).
 - **Modular Architecture:** Clean separation of concerns across the FastAPI orchestration layer, React/TypeScript frontend, and the standalone AI/ML `Engine` (OCR, grading, clustering).
-- **Asynchronous Processing:** Long-running AI tasks (LLM inference, OCR) are decoupled from the main thread using background workers and job queues, ensuring a highly responsive API.
+- **Asynchronous Processing:** Long-running OCR, grading, and cheat detection work is submitted through Celery worker tasks. Local development uses a SQLite-backed Celery broker by default; production deployments should configure `CELERY_BROKER_URL` and `CELERY_RESULT_BACKEND` for Redis or RabbitMQ-backed infrastructure.
 - **Type Safety & Validation:** Comprehensive use of Pydantic models in the backend for rigorous request/response validation, paired with TypeScript on the frontend to eliminate runtime type errors.
-- **Algorithmic Efficiency:** The cheat detection engine employs adaptive thresholding and early-exit heuristics to prevent O(N²) time complexity explosions when analyzing large student cohorts.
+- **Algorithmic Efficiency:** The cheat detection engine employs adaptive thresholding and early-exit heuristics (skipping non-suspicious token counts) to prevent O(N²) time complexity explosions when analyzing large student cohorts.
 - **Security:** Secure JWT-based role-aware authentication patterns with Bcrypt password hashing and safe environment variable configurations.
 - **Clean Code:** Adherence to PEP 8 standards in Python, DRY principles, centralized helper functions (`remove_stop_words`, `get_lemmatized_words`), and detailed docstrings/logging for observability.
 
@@ -127,7 +129,7 @@ High-level flow:
 Core execution model:
 - FastAPI application handles API and orchestration.
 - MongoDB stores users, sessions, results, and analysis artifacts.
-- Background tasks run long processing jobs asynchronously.
+- Background tasks run long processing jobs asynchronously via Celery workers.
 - React frontend provides dashboards and workflow UI.
 
 ### System Architecture Overview
@@ -159,39 +161,40 @@ Core execution model:
                                                  |
                                    +-------------v--------------+
                                    |         Engine             |
-                                   |      (AI Logic Core)      |
+                                   |      (AI Logic Core)       |
                                    +-------------+--------------+
                                                  |
           +-------------------+------------------+-------------------+-------------------+
           |                   |                  |                   |                   |
 +---------v--------+ +--------v---------+ +------v-------+ +---------v---------+ +-------v--------+
 |      Grade       | | OMI Assistant    | | Cheat Detect | | Dashboard Data    | |       QCP      |
-|------------------| |------------------| |--------------| | Generator          | |----------------|
-| - AI paper       | | - AI support     | | - Detects    | | - Analytics        | | - Generates    |
-|   grading        | | - Query handling | |   malpractice| | - Dashboard data   | |   question     |
-|                  | |                  | |              | |                     | |   papers       |
-+------------------+ +------------------+ +--------------+ +---------------------+ +----------------+
+|------------------| |------------------| |--------------| | Generator         | |----------------|
+| - AI paper       | | - AI support     | | - Detects    | | - Analytics       | | - Generates    |
+|   grading        | | - Query handling | |   malpractice| | - Dashboard data  | |   question     |
+|                  | |                  | |              | |                   | |   papers       |
++------------------+ +------------------+ +--------------+ +-------------------+ +----------------+
 
 ```
 ## Tech Stack
 
 Backend:
-- FastAPI
-- Pydantic
-- JWT + Bcrypt authentication
-- MongoDB (`pymongo`)
+- FastAPI (~0.136.1)
+- Pydantic (~2.13.3)
+- JWT (`pyjwt~=2.12.1`) + Bcrypt authentication
+- MongoDB (`pymongo~=4.17.0`)
+- Celery (`celery~=5.4.0`)
 
 AI/ML Engine:
 - Ollama-backed LLM inference
-- PaddleOCR + `pdf2image`
-- NLTK
-- `sentence-transformers`
-- Scikit-learn
+- PaddleOCR (`paddleocr~=2.7.3`) + `pdf2image`
+- NLTK (`nltk~=3.9.4`)
+- Sentence-Transformers (`sentence-transformers~=5.4.1`)
+- Scikit-learn (`scikit-learn~=1.8.0`)
 - NumPy, Pandas
 
 Frontend:
 - React 19 + TypeScript + Vite
-- Tailwind CSS
+- Tailwind CSS 4
 - React Router DOM
 - Recharts
 - Axios
@@ -203,12 +206,14 @@ omnimark.ai/
 ├── backend/                 # FastAPI server, auth, worker orchestration
 ├── Engine/                  # NLP, LLM, OCR, cheat detection, OMI, QCP modules
 ├── frontend/                # React + TypeScript dashboard client
+├── tests/                   # Pytest automated testing suite
 ├── uploads/                 # Runtime upload artifacts (local)
 ├── logs/                    # Runtime logs
 ├── media/                   # Screenshots for documentation
-├── docker-compose.yml
-├── requirements.txt
-└── README.md
+├── docker-compose.yml       # Docker deployment configuration
+├── requirements.txt         # Python dependencies
+├── package.json             # Root monorepo scripts for install and dev
+└── README.md                # Project documentation
 ```
 
 ## Getting Started
@@ -256,7 +261,7 @@ npm run install-all
 npm run dev
 ```
 
-This runs backend + frontend concurrently using root scripts.
+This runs backend + frontend concurrently using root scripts (`concurrently`).
 
 ### Option B: Run services manually
 
@@ -265,7 +270,7 @@ Backend:
 ```bash
 pip install -r requirements.txt
 cd backend
-fastapi dev app.py
+../.venv/bin/uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Frontend:
@@ -308,7 +313,7 @@ Cheating analysis:
 - `POST /session/{session_id}/cheat_detection`
 - `GET /session/{session_id}/cheat_report`
 
-The advanced cheat detection engine utilizes a multi-vector similarity score (Semantic Cosine, Jaccard Lexical, Sequence Match, Rare-overlap TF-IDF) and applies **DBSCAN clustering** to group highly correlated answers. This allows teachers to inspect not just suspicious isolated pairs, but the broader similarity cohorts they belong to, providing deep insights into coordinated academic malpractice.
+The advanced cheat detection engine utilizes a multi-vector similarity score (45% Semantic Cosine, 20% Jaccard Lexical, 15% Sequence Match, 15% Rare-overlap TF-IDF, 5% Length) and applies **DBSCAN clustering** (`eps=0.22`, `min_samples=2`) to group highly correlated answers. This allows teachers to inspect not just suspicious isolated pairs, but the broader similarity cohorts they belong to, providing deep insights into coordinated academic malpractice.
 
 Teacher/student and re-evaluation:
 - `GET /teacher/my-class`
@@ -342,7 +347,7 @@ Health check:
 
 - Long-running operations are asynchronous; poll `GET /session/{session_id}/status`.
 - OCR and LLM grading are compute-intensive; resource sizing matters for large batches.
-- Keep `uploads/` and `logs/` out of version control in production environments.
+- Keep `uploads/`, `tests/`, and `logs/` out of version control in production environments.
 - For institutional deployments, prefer managed MongoDB and controlled object storage.
 
 ## Troubleshooting
@@ -374,5 +379,5 @@ Contributions are welcome.
 Suggested process:
 1. Create a feature branch.
 2. Make focused changes with clear commit messages.
-3. Validate backend and frontend locally.
+3. Validate backend and frontend locally (run `pytest`).
 4. Open a pull request with screenshots for UI changes.

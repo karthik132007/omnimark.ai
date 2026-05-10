@@ -8,3 +8,5 @@ uploads
 *.log
 *.zip
 notepad.txt
+celerydb.sqlite
+celery_results.sqlite

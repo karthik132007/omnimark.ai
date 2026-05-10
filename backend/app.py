@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from bson.objectid import ObjectId
 from Engine.Dashbord_data.eda import get_teacher_dashboard_summary, get_teacher_stats, get_session_stats
 from Engine.OMI.omi import explain_stats
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from Engine.cheat_detection.main import check_cheat
 from Engine.grade.nlp import Correct_NLP
@@ -382,7 +382,6 @@ def upload_folder(
 @app.post("/session/{session_id}/process")
 def process_session_endpoint(
     session_id: str,
-    background_tasks: BackgroundTasks,
     teacher_email: str | None = Form(None),
     current_user: dict | None = Depends(get_optional_current_user),
 ):
@@ -393,7 +392,7 @@ def process_session_endpoint(
         {"session_id": session_id},
         {"$set": {"status": "processing"}},
     )
-    background_tasks.add_task(process_session, session_id, session.get("zip_file"))
+    process_session.delay(session_id, session.get("zip_file"))
     return {"message": "Session processing started"}
 
 
@@ -540,6 +539,8 @@ def reevaluate_student(
         raise HTTPException(status_code=404, detail="Student result not found")
 
     new_result = _perform_reevaluation(session, result_record)
+    if not new_result:
+        raise HTTPException(status_code=500, detail="Reevaluation failed to produce a result")
     history_entry = _append_reevaluation_history(result_record, new_result, actor="teacher_direct")
     
     return {"message": "Reevaluation complete", "new_result": new_result, "history_entry": history_entry}
@@ -647,7 +648,6 @@ def reject_reevaluation_request(
 @app.post("/session/{session_id}/cheat_detection")
 def detect_cheat(
     session_id: str,
-    background_tasks: BackgroundTasks,
     teacher_email: str | None = Form(None),
     current_user: dict | None = Depends(get_optional_current_user),
 ):
@@ -661,7 +661,7 @@ def detect_cheat(
             "$unset": {"cheat_detection": "", "cheat_detection_error": ""},
         },
     )
-    background_tasks.add_task(check_cheat_in_session, session_id)
+    check_cheat_in_session.delay(session_id)
     return {"message": "Cheat detection started"}
 
 

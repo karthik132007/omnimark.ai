@@ -9,6 +9,7 @@ from Engine.cheat_detection.main import analyze_session_cheating
 from Engine.grade.nlp import Correct_NLP
 from Engine.grade.llm import LLM_Grade
 from PyPDF2 import PdfReader
+from backend.worker.celery_app import celery_app
 
 
 def _normalize_student_name(name: str) -> str:
@@ -94,6 +95,7 @@ def unzip(path):
 
 
 
+@celery_app.task(name="backend.worker.work.process_session")
 def process_session(session_id, file_location):
     # get correction mode from db using session_id (NLp or LLM)
     session = db.sessions.find_one({"session_id": session_id})
@@ -190,6 +192,7 @@ def process_session(session_id, file_location):
         {"$set": {"status": "processed", "student_rollnums": sorted(session_rollnums)}}
         )
 
+@celery_app.task(name="backend.worker.work.check_cheat_in_session")
 def check_cheat_in_session(session_id):
     try:
         session = db.sessions.find_one({"session_id": session_id}, {"_id": 0, "preferences": 1})
