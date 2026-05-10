@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import type { SessionResult } from '../types/teacherDashboard';
 import { getStudentResults, requestStudentReevaluation } from '../lib/studentApi';
 
+/**
+ * Helper to safely extract marks from a dynamic result object.
+ * @param item - The session result containing the evaluation scores.
+ * @returns Formatted marks string or 'N/A' if missing.
+ */
 const marksText = (item: SessionResult) => {
   const result = item.result as { total_marks?: number; marks?: number };
   if (typeof result.total_marks === 'number') return result.total_marks.toFixed(2);
@@ -10,6 +15,11 @@ const marksText = (item: SessionResult) => {
   return 'N/A';
 };
 
+/**
+ * Student Dashboard Component
+ * Displays the current student's evaluation results and provides
+ * functionality to request reevaluations.
+ */
 export const StudentDashboard = () => {
   const navigate = useNavigate();
   const [rows, setRows] = useState<SessionResult[]>([]);

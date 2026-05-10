@@ -5,6 +5,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Brain, Building2, LogIn, ShieldCheck, Sparkles, UserPlus } from 'lucide-react';
 import { api } from '../lib/api';
 
+/**
+ * Authentication Component
+ * Handles login and registration for Teachers and Universities.
+ * Routes authenticated users to their respective dashboards.
+ */
 export const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');

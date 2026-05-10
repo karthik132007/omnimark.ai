@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from bson.objectid import ObjectId
 from Engine.Dashbord_data.eda import get_teacher_dashboard_summary, get_teacher_stats, get_session_stats
 from Engine.OMI.omi import explain_stats
+from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from Engine.cheat_detection.main import check_cheat
@@ -22,7 +23,12 @@ from backend.worker.work import (
     process_session,
 )
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    validate_required_env()
+    yield
+
+app = FastAPI(lifespan=lifespan)
 app.title = "Omnimark Ai"
 
 _app_env = get_app_env()
@@ -40,10 +46,6 @@ app.add_middleware(
 
 app.include_router(auth_router)
 
-
-@app.on_event("startup")
-def startup_validate_config():
-    validate_required_env()
 
 @app.get("/health")
 def health_check():

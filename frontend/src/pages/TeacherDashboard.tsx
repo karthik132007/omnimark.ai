@@ -65,6 +65,12 @@ const defaultFormState = (): EvaluationSetupFormState => ({
 
 
 
+/**
+ * Helper to safely extract error messages from various error types.
+ * @param error - The caught error object (AxiosError, generic Error, etc.)
+ * @param fallback - The default message to return if extraction fails.
+ * @returns A user-facing error message string.
+ */
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (isAxiosError(error)) {
     return String(error.response?.data?.detail ?? fallback);
@@ -104,6 +110,12 @@ const inspectZipFile = async (file: File) => {
 
 
 
+/**
+ * Main Teacher Dashboard Component
+ * Orchestrates the entire teacher workflow including session management,
+ * evaluation setup, script uploading, analytics viewing, and class management.
+ * Uses a sidebar navigation pattern with multiple sub-views.
+ */
 export const TeacherDashboard = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');

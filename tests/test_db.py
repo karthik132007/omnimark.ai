@@ -22,3 +22,17 @@ def test_db_find_empty():
     from backend.db import db
     result = db.results.find_one({"non_existent": True})
     assert result is None
+
+def test_unavailable_database():
+    from backend.db import _UnavailableDatabase
+    db = _UnavailableDatabase("Connection failed")
+    
+    with pytest.raises(RuntimeError, match="MongoDB is unavailable"):
+        db.users.find_one()
+        
+    with pytest.raises(RuntimeError, match="MongoDB is unavailable"):
+        db.users.insert_one({"a": 1})
+
+    with pytest.raises(AttributeError):
+        _ = db._private_attr
+

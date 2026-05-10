@@ -165,3 +165,21 @@ def test_student_and_reevaluation_routes(monkeypatch):
     assert cheat.status_code == 200
     report = client.get(f"/session/{session_id}/cheat_report", params={"teacher_email": "teacher@example.com"})
     assert report.status_code == 200
+
+    # Edge case: Unauthorized access
+    unauth = client.get(f"/session/{session_id}", params={"teacher_email": "wrong@example.com"})
+    assert unauth.status_code == 403
+
+    # Edge case: Rejecting already approved request
+    already_approved = client.post(
+        f"/teacher/reevaluation-requests/{request_id}/reject",
+        data={"teacher_email": "teacher@example.com", "reason": "Should fail"},
+    )
+    assert already_approved.status_code == 400
+    
+    # Edge case: Approving already rejected request
+    already_rejected = client.post(
+        f"/teacher/reevaluation-requests/{second_request}/approve",
+        data={"teacher_email": "teacher@example.com"},
+    )
+    assert already_rejected.status_code == 400

@@ -8,7 +8,7 @@ from Engine.OCR.ocr import extract_text_from_pdf
 from Engine.cheat_detection.main import analyze_session_cheating
 from Engine.grade.nlp import Correct_NLP
 from Engine.grade.llm import LLM_Grade
-from PyPDF2 import PdfReader
+from pypdf import PdfReader
 from backend.worker.celery_app import celery_app
 
 
