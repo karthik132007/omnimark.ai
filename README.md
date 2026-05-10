@@ -27,22 +27,10 @@ OmniMark AI helps academic teams run end-to-end assessment workflows: session cr
 
 OmniMark AI is designed as a practical academic operations platform, not just a grading demo. It combines deterministic NLP techniques, LLM-based assessment, OCR for handwritten documents, and statistical analytics to support reliable and scalable evaluation workflows.
 
-For deeper background on manual paper-evaluation challenges and motivation, see [manual_paper_evaluation_research.md](manual_paper_evaluation_research.md).
-
 Primary users:
 - Teachers and evaluators
 - Department coordinators
 - University administrators
-
-## Accuracy and Time Findings
-
-- On average, manually checking a 10-question paper takes about 20-30 minutes per student for quality review.  
-  Source: https://www.eklavvya.com/blog/improve-answer-sheet-checking-accuracy/
-- In our website tests, the model completed correction in about 3 minutes with around 95% average accuracy.
-- Research also indicates manual checking can be error-prone; one cited analysis reports that up to 50% of answer sheets in major exams showed marking mistakes on re-evaluation.  
-  Source: https://www.eklavvya.com/blog/improve-answer-sheet-checking-accuracy/
-- Additional context on paper-based grading workflows:  
-  Source: https://www.turnitin.com/blog/turn-over-a-new-leaf-grading-paper-based-assignments-in-feedback-studio
 
 ## Photos / Screenshots
 
@@ -99,7 +87,13 @@ Primary users:
 
 ## Problem Statement & Requirements Fulfillment
 
-**Problem Statement:** Manual evaluation at an institutional scale is time-consuming, subjective, and inconsistent. Educators lack robust tooling for scalable cheating analysis, analytics-driven interventions, and transparent re-evaluation workflows. Students lack direct, immediate visibility into detailed outcomes and a structured way to request correction reviews.
+**Problem Statement:** Manual evaluation at an institutional scale is time-consuming, subjective, and inconsistent. External reports indicate that evaluating a 10-question paper can take around 20-30 minutes per student for quality checking, and large-scale re-evaluation studies report frequent marking errors in manual workflows. Educators lack robust tooling for scalable cheating analysis, analytics-driven interventions, and transparent re-evaluation workflows. Students lack direct, immediate visibility into detailed outcomes and a structured way to request correction reviews. This project direction is supported by the research summary in [`manual_paper_evaluation_research.md`](./manual_paper_evaluation_research.md).
+
+**Evidence Snapshot (Problem vs OmniMark AI):**
+- Manual checking benchmark: ~20-30 minutes per student for a 10-question paper (source: [Eklavvya](https://www.eklavvya.com/blog/improve-answer-sheet-checking-accuracy/)).
+- Manual accuracy concern: external reporting highlights high marking-error rates discovered during re-evaluation in major exams (source: [Eklavvya](https://www.eklavvya.com/blog/improve-answer-sheet-checking-accuracy/)).
+- OmniMark AI benchmark (project observation): model-based correction completes in ~3 minutes with ~95% average accuracy.
+- Additional context on digitized grading workflows: [Turnitin Feedback Studio](https://www.turnitin.com/blog/turn-over-a-new-leaf-grading-paper-based-assignments-in-feedback-studio).
 
 **Requirements Fulfillment:**
 - **Automated Grading:** Implemented a dual-engine architecture (NLP deterministic + LLM generative) to handle both factual and subjective answers, fulfilling the requirement for scalable, accurate assessment.
@@ -212,7 +206,6 @@ omnimark.ai/
 ├── uploads/                 # Runtime upload artifacts (local)
 ├── logs/                    # Runtime logs
 ├── media/                   # Screenshots for documentation
-├── manual_paper_evaluation_research.md  # Research context for problem motivation
 ├── docker-compose.yml
 ├── requirements.txt
 └── README.md
