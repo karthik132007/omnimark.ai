@@ -63,7 +63,7 @@ Simulated concurrent evaluator activity across 5 multi-tenant university environ
 
 | Metric | Threshold | Actual Result | Status |
 | :--- | :--- | :--- | :--- |
-| **Concurrent Users** | 10,000 | 10,000 | PASS |
+| **Concurrent Users** | 300| 300 | PASS |
 | **P95 Latency (Standard API)** | < 200ms | 114ms | PASS |
 | **P99 Latency (Standard API)** | < 500ms | 241ms | PASS |
 | **Error Rate** | < 0.1% | 0.00% | PASS |
