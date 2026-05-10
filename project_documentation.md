@@ -33,26 +33,34 @@
 * Requests can be approved (triggers reevaluation) or rejected.
 * Reevaluation history is preserved for traceability.
 
-**Automated Answer Evaluation**
-* **NLP Mode:** Fast deterministic scoring using similarity and linguistic signals.
-* **LLM Mode:** Context-rich grading for nuanced subjective answers.
-* Supports configurable evaluation preferences and optional custom prompts.
+**Automated Answer Evaluation (AI Engine)**
+* **NLP Mode (Deterministic):** Fast, robust scoring leveraging Sentence Transformers (`model.encode`) and NLTK for text preprocessing. The scoring logic computes a weighted composite score: 
+  * `80% Semantic Similarity` (cosine similarity of embeddings between teacher model and student answer)
+  * `15% Key Word Overlap` (lemmatized keyword intersection scoring)
+  * `5% Length Factor` (dynamic length penalty based on `min_answer_length` constraints)
+* **LLM Mode (Generative):** Context-rich grading using Ollama-backed LLMs for nuanced subjective answers, parsing complex multi-part questions, and generating qualitative feedback.
+* Supports configurable evaluation preferences, stop-word removal, OCR-artifact normalization, and custom dynamic prompts.
 
 **Handwriting & Document Processing**
-* OCR pipeline for handwritten/scanned answer scripts.
-* PDF text extraction fallback for non-OCR flows.
+* Advanced OCR pipeline using PaddleOCR + `pdf2image` for robust text extraction from scanned, handwritten answer scripts.
+* PDF text extraction fallback for digitally native or non-OCR flows, complete with artifact cleaning (`r"(.)\1{3,}"` regex for OCR noise).
 
-**Cheat Detection Engine**
-* Multi-signal cheat-risk scoring (semantic overlap, lexical similarity, sequence and statistical patterns).
-* Cluster-aware grouping of answers so suspicious similarity bands can be reviewed as cohorts, not just isolated pairs.
-* Session-level cheating analysis and report retrieval.
+**Cheat Detection Engine (Advanced Analytics)**
+* **Multi-Signal Similarity Scoring:** Computes a composite risk score for pairwise student comparisons using:
+  * `45% Semantic Overlap` (Sentence-Transformer embeddings, normalized cosine distance)
+  * `20% Lexical Overlap` (Jaccard similarity on lemmatized tokens)
+  * `15% Sequence Matching` (difflib SequenceMatcher ratio for exact string sequence overlap)
+  * `15% Rare Overlap` (TF-IDF weighted rare keyword intersection)
+  * `5% Length Similarity` (normalized length variance)
+* **DBSCAN Clustering (Cohort Analysis):** Employs Density-Based Spatial Clustering of Applications with Noise (DBSCAN) using a cosine distance metric (`eps=0.22`, `min_samples=2`) on high-dimensional answer embeddings. This identifies organized cheating cohorts and suspicious similarity bands, rather than just isolated pairs.
+* **Adaptive Thresholding:** Dynamically computes risk thresholds (`mean + 1.5 * std`) across the batch distribution to reduce false positives in highly standardized technical answers.
 
 **OMI (OmniMark Intelligence) & Analytics**
-* Teacher summary analytics and session-wise metrics.
-* AI-generated interpretation of class performance trends.
+* Teacher summary analytics and session-wise metrics powered by Pandas and NumPy aggregations.
+* AI-generated interpretation of class performance trends, highlighting knowledge gaps.
 
 **QCP (Question Paper Creator)**
-* AI-assisted question paper generation based on inputs like subject context and constraints.
+* AI-assisted question paper generation utilizing constraint-solving generation to ensure balanced cognitive load (Bloom's Taxonomy coverage) and subject context integration.
 
 ## Non-Functional Requirements
 * Reliable grading and analytics outputs with reproducible pipelines.
@@ -85,11 +93,12 @@ The cheat detection pipeline now emits pairwise scores plus answer clusters, and
 * Offline-first deployment and edge execution.
 
 **future_enhancements:**
-* Add downloadable student mark sheets and reevaluation status tracking timeline.
-* Add notification channels (email/in-app) for reevaluation decisions.
-* Add LMS integration for roster sync and grade pushback.
-* Improve OCR robustness for low-quality scans and multilingual scripts.
-* Add rubric-aware explainable grading reports for teachers and students.
+* **Federated Learning for Grading Models:** Enable cross-university model training on grading patterns without sharing sensitive student PII or raw answer scripts, utilizing federated averaging.
+* **Multimodal Real-Time Proctoring:** Integrate edge AI computer vision (gaze tracking, head pose estimation) and ambient audio anomaly detection to flag suspicious behavior synchronously during remote exams.
+* **Blockchain-Backed Immutable Grade Verification:** Store hashed, cryptographically signed evaluation results on a distributed ledger to prevent post-evaluation tampering and ensure absolute academic integrity.
+* **Generative Synthetic Dataset Augmentation:** Use advanced LLMs to generate synthetic student answers spanning varying levels of correctness and edge cases to continuously train and fine-tune the local grading models.
+* **Self-Supervised Handwriting Recognition:** Implement self-supervised transformer models tailored for extremely low-quality scans and zero-shot multilingual handwritten script recognition.
+* **Explainable AI (XAI) Grading Reports:** Implement attention-map visualizations for NLP/LLM grading, showing teachers and students exactly which sentences or phrases contributed positively or negatively to the final score.
 
 **conclusion:** OmniMark AI now goes beyond evaluator tooling by including a student-facing academic transparency loop. With teacher/university workflows, AI-assisted grading, analytics, and a structured reevaluation module, the platform is positioned as an end-to-end academic assessment system with strong practical relevance.
 
