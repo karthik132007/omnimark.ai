@@ -63,13 +63,25 @@
 
 **problem_statement:** Manual evaluation at institutional scale is time-consuming and inconsistent. Educators also need tooling for cheating analysis, analytics-driven interventions, and transparent reevaluation. Students need direct visibility into outcomes and a structured way to request correction review.
 
+**problem_statement_research_reference:** [manual_paper_evaluation_research.md](manual_paper_evaluation_research.md)
+
 **proposed_solution:** OmniMark AI provides a full-stack AI evaluation system where teachers and universities can automate grading and analysis, while students can access marks and request reevaluation through both authenticated and compatibility endpoint flows. The backend orchestrates OCR, NLP/LLM grading, and analytics, while the frontend offers dedicated dashboards for each actor.
 
-**technologies_used:** React 19, TypeScript, Tailwind CSS 4, Vite, Axios, Recharts, FastAPI, Python, MongoDB (pymongo), JWT, Pydantic, Ollama/LLM integration, PaddleOCR, pdf2image, NLTK, Sentence-Transformers, Scikit-learn, Pandas, NumPy.
+**technologies_used:** React 19, TypeScript, Tailwind CSS, Vite, React Router DOM, Axios, Recharts, FastAPI, Python, MongoDB (pymongo), JWT, Pydantic, Ollama/LLM inference, PaddleOCR, pdf2image, NLTK, sentence-transformers, Scikit-learn, Pandas, NumPy.
 
 **system_architecture:** Three-tier architecture with a React frontend, FastAPI orchestration layer, and MongoDB persistence. A dedicated `Engine` layer provides OCR, grading (NLP/LLM), cheat detection, dashboard statistics, OMI insights, and QCP generation. Background tasks/process workers handle long-running evaluation jobs.
 
 The cheat detection pipeline now emits pairwise scores plus answer clusters, and the teacher analytics UI renders both views.
+
+## Evaluation Workflow
+1. Create session with question paper and model answer.
+2. Upload student scripts as ZIP.
+3. Trigger processing.
+4. Worker extracts text (OCR if handwritten mode is enabled).
+5. Grading engine computes score + feedback.
+6. Session results are persisted.
+7. Cheating report is generated with pairwise scoring and answer clustering.
+8. Teacher reviews dashboard and OMI insights.
 
 **in_scope:**
 * Session-based exam evaluation for teachers/university.
@@ -83,6 +95,10 @@ The cheat detection pipeline now emits pairwise scores plus answer clusters, and
 * Real-time remote proctoring using live camera streams.
 * Fully reliable diagram/math-expression visual grading in all formats.
 * Offline-first deployment and edge execution.
+* Multi-campus role-based access control (RBAC) and complex institutional hierarchies.
+* Institutional bulk export pipelines (CSV/PDF reports natively).
+* Container-ready CI/CD production profiles and advanced job queue observability.
+* Pluggable LLM provider abstractions (currently tightly coupled to Ollama).
 
 **future_enhancements:**
 * Add downloadable student mark sheets and reevaluation status tracking timeline.
@@ -90,6 +106,11 @@ The cheat detection pipeline now emits pairwise scores plus answer clusters, and
 * Add LMS integration for roster sync and grade pushback.
 * Improve OCR robustness for low-quality scans and multilingual scripts.
 * Add rubric-aware explainable grading reports for teachers and students.
+* Implement role-based access policies for multi-campus environments.
+* Better observability (job queues, tracing, structured logs).
+* Bulk export pipelines (CSV/PDF institutional reports).
+* Pluggable LLM provider abstraction.
+* CI/CD and container-first production profile.
 
 **conclusion:** OmniMark AI now goes beyond evaluator tooling by including a student-facing academic transparency loop. With teacher/university workflows, AI-assisted grading, analytics, and a structured reevaluation module, the platform is positioned as an end-to-end academic assessment system with strong practical relevance.
 
