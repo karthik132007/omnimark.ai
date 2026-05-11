@@ -72,6 +72,20 @@ def test_grade_via_llm_ollama_and_openai_paths(monkeypatch):
         call_llm._build_openai_client()
 
 
+def test_llm_grade_error_paths(monkeypatch):
+    # Test LLM_Grade with invalid JSON
+    monkeypatch.setattr(llm, "grade_via_llm", lambda *args, **kwargs: "not-json")
+    invalid = llm.LLM_Grade("q", "key", "answer", {})
+    assert invalid["error"] == "Invalid JSON response from LLM"
+    assert "not-json" in invalid["raw_response"]
+
+    # Test LLM_Reevaluate with invalid JSON
+    monkeypatch.setattr(llm, "grade_via_llm", lambda *args, **kwargs: "not-json")
+    invalid_re = llm.LLM_Reevaluate("q", "key", "answer", {}, {"total_marks": 7})
+    assert invalid_re["error"] == "Invalid JSON response from LLM"
+    assert "not-json" in invalid_re["raw_response"]
+
+
 def test_qcp_set_paper_parses_json_and_returns_raw(monkeypatch):
     valid_payload = {
         "exam_title": "Mid Exam",

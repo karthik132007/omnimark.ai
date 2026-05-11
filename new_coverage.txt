@@ -1,0 +1,105 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.12, pytest-9.0.3, pluggy-1.6.0
+rootdir: /home/electron/Documents/GitHub/omnimark.ai
+plugins: anyio-4.13.0, cov-6.0.0, mock-3.14.1
+collected 74 items
+
+tests/test_app_helpers_extended.py .....                                 [  6%]
+tests/test_app_routes_extended.py ..                                     [  9%]
+tests/test_auth_flows_extended.py ..                                     [ 12%]
+tests/test_cheat_detection_unit.py .......                               [ 21%]
+tests/test_config_extended.py ......                                     [ 29%]
+tests/test_db.py ...                                                     [ 33%]
+tests/test_db_extended.py ..                                             [ 36%]
+tests/test_eda.py ....                                                   [ 41%]
+tests/test_eda_dashboard_summary_extended.py ..                          [ 44%]
+tests/test_endpoints.py ....                                             [ 50%]
+tests/test_future_scope_hooks.py ..                                      [ 52%]
+tests/test_grade_base_extended.py .....                                  [ 59%]
+tests/test_helpers_llm_qcp.py .....                                      [ 66%]
+tests/test_nlp_grading_unit.py .....                                     [ 72%]
+tests/test_notifications.py .                                            [ 74%]
+tests/test_ocr_fallback_unit.py ..                                       [ 77%]
+tests/test_ollama_ocr_extended.py ....                                   [ 82%]
+tests/test_omi.py .                                                      [ 83%]
+tests/test_omi_fastapi.py .                                              [ 85%]
+tests/test_report_exporter.py ...                                        [ 89%]
+tests/test_stats.py ...                                                  [ 93%]
+tests/test_worker_processing_extended.py .....                           [100%]
+
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/mongomock/__version__.py:1
+  /home/electron/Documents/GitHub/omnimark.ai/.venv/lib/python3.13/site-packages/mongomock/__version__.py:1: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+    import pkg_resources
+
+backend/app.py:736
+  /home/electron/Documents/GitHub/omnimark.ai/backend/app.py:736: FastAPIDeprecationWarning: `regex` has been deprecated, please use `pattern` instead
+    format: str = Query(default="csv", regex="^(csv|xlsx)$"),
+
+tests/test_app_routes_extended.py::test_student_and_reevaluation_routes
+tests/test_auth_flows_extended.py::test_auth_register_login_teacher_crud_and_token
+tests/test_auth_flows_extended.py::test_student_login_and_optional_user
+  /home/electron/Documents/GitHub/omnimark.ai/.venv/lib/python3.13/site-packages/jwt/api_jwt.py:147: InsecureKeyLengthWarning: The HMAC key is 16 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+tests/test_app_routes_extended.py::test_student_and_reevaluation_routes
+tests/test_auth_flows_extended.py::test_auth_register_login_teacher_crud_and_token
+tests/test_auth_flows_extended.py::test_student_login_and_optional_user
+  /home/electron/Documents/GitHub/omnimark.ai/.venv/lib/python3.13/site-packages/jwt/api_jwt.py:365: InsecureKeyLengthWarning: The HMAC key is 16 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    decoded = self.decode_complete(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+---------- coverage: platform linux, python 3.13.12-final-0 ----------
+Name                                           Stmts   Miss  Cover   Missing
+----------------------------------------------------------------------------
+Engine/Dashbord_data/eda.py                      126     15    88%   13, 27-28, 59, 65, 67, 73, 78, 81-82, 86-87, 112, 164-165
+Engine/OCR/ocr.py                                 43      4    91%   17, 36-39
+Engine/OCR/ollama_ocr.py                          19      1    95%   17
+Engine/OMI/omi.py                                  8      1    88%   5
+Engine/QCP/qcp.py                                 17      2    88%   141-142
+Engine/call_llm.py                                22      0   100%
+Engine/cheat_detection/cluster.py                 83     13    84%   25, 44, 49-51, 70, 90-91, 109, 123, 150-152
+Engine/cheat_detection/main.py                   191     34    82%   39, 48, 53, 73, 75, 77, 97, 124, 131-144, 148-156, 174, 188, 222, 231, 293-298, 313
+Engine/grade/base.py                              23      1    96%   25
+Engine/grade/llm.py                               26      0   100%
+Engine/grade/nlp.py                               38      1    97%   10
+Engine/helpers.py                                 45      1    98%   41
+Engine/reports/exporter.py                        18      0   100%
+backend/app.py                                   373    109    71%   28-29, 52, 71, 111-122, 129, 132-147, 192-219, 237-238, 251-252, 264, 277-317, 381, 401, 444, 469, 492, 508, 527, 530, 556, 560, 583, 604-605, 608, 616, 619, 641-642, 645, 649, 673, 697, 707-726, 744-767, 778-798
+backend/auth.py                                  231     66    71%   71, 81-84, 109, 111, 113-114, 163, 169-170, 172, 174, 187-188, 190, 192, 200-201, 208-243, 254-256, 262, 286, 299, 302, 309, 314-316, 320-331
+backend/config.py                                 45      1    98%   55
+backend/db.py                                     48      3    94%   73-75
+backend/schemas.py                                39      0   100%
+backend/services/notification.py                  19      0   100%
+backend/worker/celery_app.py                       6      0   100%
+backend/worker/files.py                            5      0   100%
+backend/worker/work.py                           180     23    87%   22-23, 27, 47, 51, 104-105, 131-132, 185-186, 241-242, 255, 316-320, 326-329
+tests/conftest.py                                 29      0   100%
+tests/test_app_helpers_extended.py                49      0   100%
+tests/test_app_routes_extended.py                 92      1    99%   125
+tests/test_auth_flows_extended.py                 51      0   100%
+tests/test_cheat_detection_unit.py                60      3    95%   10, 16, 18
+tests/test_config_extended.py                     36      0   100%
+tests/test_db.py                                  28      0   100%
+tests/test_db_extended.py                         16      0   100%
+tests/test_eda2.py                                 7      0   100%
+tests/test_eda.py                                 26      0   100%
+tests/test_eda_dashboard_summary_extended.py      23      0   100%
+tests/test_endpoints.py                           30      0   100%
+tests/test_future_scope_hooks.py                  23      1    96%   46
+tests/test_grade_base_extended.py                 23      1    96%   8
+tests/test_helpers_llm_qcp.py                     68      0   100%
+tests/test_nlp_grading_unit.py                    46      0   100%
+tests/test_notifications.py                       14      0   100%
+tests/test_ocr_fallback_unit.py                   35      3    91%   10-11, 22
+tests/test_ollama_ocr_extended.py                 27      0   100%
+tests/test_omi.py                                 15      0   100%
+tests/test_omi_fastapi.py                         15      0   100%
+tests/test_report_exporter.py                     19      0   100%
+tests/test_stats.py                               32      0   100%
+tests/test_worker_processing_extended.py          96      0   100%
+----------------------------------------------------------------------------
+TOTAL                                           2465    284    88%
+
+======================= 74 passed, 8 warnings in 18.09s ========================

@@ -468,3 +468,16 @@ pytest
 ### 14.3 Dependency source of truth
 - `backend/pyproject.toml` natively handles dependencies (PEP-621) substituting the previously minimal definition, though `requirements.txt` remains for backward compatibility.
 
+## 15. Claims, Benchmarks, and Evidence Policy
+
+This repository prioritizes evidence-based documentation. All claims in sections 1-13 are verifiable by examining the source code in this repository.
+
+## 16. Future Roadmap (Working on it)
+
+We are actively evolving OmniMark AI. The following features are currently being explored and we intend to integrate them in the future:
+
+- **LMS Integration**: Standardized adapters for Moodle, Canvas, and Blackboard for automated roster and grade syncing.
+- **SMS & Email Notifications**: Automated alerts for processing completion and reevaluation updates.
+- **Student Script Visibility**: Secure student access to their evaluated answer scripts.
+- **Advanced Comparative Analytics**: Longitudinal cohort insights and question difficulty profiling.
+

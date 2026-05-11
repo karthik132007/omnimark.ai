@@ -5,14 +5,17 @@ from Engine.OCR import ocr
 
 
 class _FakePage:
-    def save(self, path, _fmt):
-        with open(path, "wb") as fh:
-            fh.write(b"fake-image")
+    def save(self, path, format=None, **kwargs):
+        if isinstance(path, str):
+            with open(path, "wb") as fh:
+                fh.write(b"fake-image")
+        else:
+            path.write(b"fake-image")
 
 
 def test_extract_text_uses_primary_ocr(monkeypatch):
     monkeypatch.setattr(ocr, "convert_from_path", lambda _pdf_path: [_FakePage()])
-    monkeypatch.setattr(ocr, "ocr_with_llm", lambda _img_path: "primary-text")
+    monkeypatch.setattr(ocr, "ocr_with_llm", lambda base64_str=None, **kwargs: "primary-text")
 
     class _PaddleOCRNever:
         def __init__(self, **_kwargs):
@@ -29,7 +32,7 @@ def test_extract_text_uses_primary_ocr(monkeypatch):
 def test_extract_text_falls_back_when_primary_fails(monkeypatch):
     monkeypatch.setattr(ocr, "convert_from_path", lambda _pdf_path: [_FakePage()])
 
-    def _raise_primary(_img_path):
+    def _raise_primary(base64_str=None, **kwargs):
         raise RuntimeError("LLM OCR unavailable")
 
     monkeypatch.setattr(ocr, "ocr_with_llm", _raise_primary)

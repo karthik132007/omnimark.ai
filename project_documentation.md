@@ -350,12 +350,12 @@ These are highly implementable features that build directly on our current data 
 - **Student Answer Script Visibility**: Allow students to securely request and view their annotated or processed PDF answer scripts, providing vital context when they initiate a reevaluation request.
 - **Security and Authentication Hardening**: Address identified IDOR vulnerability by enforcing strict JWT validation and Role-Based Access Control (RBAC) on the student module endpoints (specifically `GET /student/{rollnum}/results` and `POST /student/{rollnum}/request-reevaluation`) to prevent unauthorized access via roll number guessing.
 - **Test Coverage and Pipeline Resilience**: Address explicitly identified gaps in critical pipeline testing. Substantially increase coverage for `backend/worker/work.py` with expanded error handling visibility. Expand `Engine/OCR/ollama_ocr.py` test coverage with integration tests and explicit fallback behavior tests for when PaddleOCR or Ollama are unavailable.
-- **Basic Notification Infrastructure**: Add automated email alerting for session processing completion and updates to student reevaluation requests.
+- **Enhanced Notification Infrastructure (Working on it)**: We are working on adding automated alerting systems. We intend to integrate email and **SMS notifications** in the future to alert teachers of session processing completion and students of reevaluation request updates.
 
-### 13.2 Intermediate Enhancements
+### 13.2 Intermediate Enhancements (Future Integration)
 These features require moderate architectural additions but integrate smoothly into the existing `Engine/` abstraction layers.
 
-- **LMS Integration (Learning Management Systems)**: Implement standardized adapter layers for Moodle, Canvas, and Blackboard to handle roster synchronization and automated grade pushes.
+- **LMS Integration (Working on it)**: We are exploring standardized adapter layers for Learning Management Systems such as Moodle, Canvas, and Blackboard. We intend to integrate these in the future to handle roster synchronization and automated grade pushes.
 - **Custom Rubrics and Criteria Management**: Introduce a rubric builder UI with per-session binding, allowing grading engines to map evaluation outputs against institutional and subject-specific standards.
 - **Plagiarism and Originality Matching**: Integrate with external plagiarism detection (e.g., Turnitin/SafeAssign) to complement our in-house cheat-detection semantic clustering.
 - **Progressive Result Release**: Provide controls for teachers to embargo results and release them asynchronously across a cohort only after manual reviews are finalized.
