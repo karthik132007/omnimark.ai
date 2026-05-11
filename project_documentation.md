@@ -5,6 +5,8 @@
 - Repository scope reviewed: backend, engine modules, frontend, worker, tests, configuration files
 - Purpose: factual, implementation-backed technical documentation for engineering review and hackathon evaluation
 - Method: code-first documentation rewrite (no speculative feature claims)
+- **Live Demo**: [http://13.204.156.83](http://13.204.156.83) (Deployed on AWS)
+- **Deployment Mode**: Fully Dockerized
 
 ## 1. Executive Overview
 
@@ -166,9 +168,9 @@ Response is expected in JSON form and parser safeguards are present.
 
 ### 4.1 Component Topology
 
-- **Presentation layer**: React application with role-specific routes and views.
+- **Presentation layer**: React application with role-specific routes and views. Deployed via Nginx in Docker.
 - **Application layer**: FastAPI route handlers, authorization, orchestration.
-- **Processing layer**: Celery workers for heavy/background workloads.
+- **Processing layer**: Celery workers for heavy/background workloads. Uses **SQLite** as broker and result backend.
 - **Intelligence layer**: Engine modules for OCR, grading, risk scoring, and insight generation.
 - **Persistence layer**: MongoDB collections for users, sessions, results, requests, and classroom aggregates.
 
@@ -178,6 +180,14 @@ Response is expected in JSON form and parser safeguards are present.
 - Data plane: OCR/grading/risk computations executed out-of-band through task workers.
 
 This separation enables non-blocking API behavior under heavy script batches.
+
+### 4.3 Celery and Message Broker Strategy
+To simplify deployment and reduce external dependencies, the system uses **SQLite** for both the Celery message broker and the result backend. 
+
+In a Dockerized environment, the SQLite database files are stored in a shared persistent volume (`celery_data`), ensuring that both the FastAPI backend (producer) and the Celery worker (consumer) can communicate effectively.
+
+- Broker URL: `sqla+sqlite:////app/data/celerydb.sqlite`
+- Result Backend: `db+sqlite:////app/data/celery_results.sqlite`
 
 ## 5. Backend API Surface (Implemented)
 
@@ -295,16 +305,19 @@ Production deployments should explicitly provide durable message broker and back
 
 ## 9. Deployment and Operations
 
-### 9.1 Local run path
+### 9.1 Docker Deployment (Recommended)
+The project is optimized for Docker Compose. It orchestrates the frontend, backend, and worker services seamlessly.
+
+```bash
+docker-compose up --build
+```
+
+### 9.2 Local run path (Development)
 - install Python + frontend dependencies,
 - run API and frontend (`npm run dev`),
 - run Celery worker in separate process.
 
-### 9.2 Docker compose path
-Repository includes `docker-compose.yml` with services for:
-- backend
-- frontend
-- mongodb
+By default, local runs use SQLite files in the root directory.
 
 ### 9.3 Operational observability
 Processing progress is exposed via session status endpoint fields (`processed`/`total_files`).
@@ -335,7 +348,7 @@ This provides good functional confidence for current implemented pathways.
 
 ## 12. Known Risks and Limitations (Code-Observed)
 
-1. SQLite Celery transport defaults are development-focused; production-grade queues should use Redis/RabbitMQ.
+1. SQLite Celery transport is excellent for simplicity and small-to-medium institutional deployments, but extremely high-volume environments may eventually require transitioning to Redis or RabbitMQ for advanced queue management.
 2. OCR quality and LLM output quality remain model/input dependent and should be monitored per deployment context.
 
 

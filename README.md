@@ -2,6 +2,10 @@
 
 OmniMark AI is a role-based AI evaluation platform that helps universities and teachers run end-to-end answer sheet assessment workflows with automation, consistency, and visibility.
 
+**Live Demo:** [http://13.204.156.83](http://13.204.156.83) (Deployed on AWS)
+
+The project is fully **Dockerized** for easy deployment and scalability.
+
 It supports:
 - session creation with model answer and question paper ingestion,
 - bulk student script upload,
@@ -264,41 +268,29 @@ omnimark.ai/
 - `CELERY_BROKER_URL`
 - `CELERY_RESULT_BACKEND`
 
-### 7.3 Celery Defaults (Local Development)
-If broker/backend env vars are not provided:
-- Broker: `sqla+sqlite:///celerydb.sqlite`
-- Result backend: `db+sqlite:///celery_results.sqlite`
+### 7.3 Celery and Docker Setup
+This project uses **SQLite** as the message broker and result backend for Celery, allowing it to run without external dependencies like Redis.
 
-These defaults are convenient for local development but not meant for production scale.
+In the Dockerized environment, these are configured to use a persistent volume:
+- Broker: `sqla+sqlite:////app/data/celerydb.sqlite`
+- Result backend: `db+sqlite:////app/data/celery_results.sqlite`
 
-## 8. Local Development Setup
+## 8. Deployment with Docker
 
-### 8.1 Prerequisites
-- Python 3.10+
-- Node.js 18+
-- npm
-- MongoDB instance
-- Ollama runtime (for default model integrations)
-- Poppler utilities (for `pdf2image`)
+The project is fully Dockerized and can be started using Docker Compose:
 
-### 8.2 Install
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-npm run install-all
+docker-compose up --build
 ```
 
-### 8.3 Start Frontend + Backend
-```bash
-npm run dev
-```
+This will spin up:
+- **FastAPI Backend**: `http://localhost:8000`
+- **Celery Worker**: For async OCR and grading.
+- **Frontend (Nginx)**: `http://localhost:80`
 
-By default:
-- Backend: `http://127.0.0.1:8000`
-- Frontend: Vite dev server (`http://localhost:5173` typically)
-
-## 9. Running Celery Workers
+## 9. Local Development Setup (Non-Docker)
+...
+### 9.4 Running Celery Workers (Local)
 
 Start worker from repository root in a separate terminal:
 
@@ -307,9 +299,7 @@ source .venv/bin/activate
 celery -A backend.worker.celery_app:celery_app worker --loglevel=info --pool=solo
 ```
 
-Why this matters:
-- `/session/{id}/process` only queues jobs.
-- actual OCR/grading execution occurs inside the worker process.
+By default, it uses local SQLite files `celerydb.sqlite` and `celery_results.sqlite` in the root directory.
 
 ## 10. API Reference (Implemented Endpoints)
 
