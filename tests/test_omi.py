@@ -3,13 +3,14 @@ import json
 from unittest.mock import patch
 from Engine.OMI import omi
 
-@patch('Engine.OMI.omi.ollama.chat')
-def test_explain_stats_mocked(mock_chat):
-    mock_chat.return_value = {
+@patch('Engine.OMI.omi.ollama.Client')
+def test_explain_stats_mocked(mock_client_class):
+    mock_client = mock_client_class.return_value
+    mock_client.chat.return_value = {
         "message": {
             "content": json.dumps({
                 "insights": ["Test insight"],
-                "summary": "Test summary"
+                "overview": "Test overview"
             })
         }
     }
@@ -21,5 +22,5 @@ def test_explain_stats_mocked(mock_chat):
     assert isinstance(result, str)
     parsed = json.loads(result)
     assert "insights" in parsed
-    assert parsed["summary"] == "Test summary"
-    mock_chat.assert_called_once()
+    assert parsed["overview"] == "Test overview"
+    mock_client.chat.assert_called_once()

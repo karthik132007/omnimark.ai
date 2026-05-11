@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 import mongomock
 
 from backend import app as app_module
+from backend import analytics, utils
 from Engine.Dashbord_data import eda
 
 
@@ -27,8 +28,8 @@ def test_teacher_stats(monkeypatch):
             },
         ]
     )
-    monkeypatch.setattr(app_module, "db", mock_db)
-    monkeypatch.setattr(eda, "db", mock_db)
+    for m in [utils, eda]:
+        monkeypatch.setattr(m, "db", mock_db)
 
     response = client.get("/dashboard/teacher_stats", params={"teacher_email": "test@teacher.com"})
 
@@ -36,8 +37,8 @@ def test_teacher_stats(monkeypatch):
 
 
 def test_session_stats(monkeypatch):
-    monkeypatch.setattr(app_module, "get_authorized_session", lambda *_args, **_kwargs: {"session_id": "test_session_123"})
-    monkeypatch.setattr(app_module, "get_session_stats", lambda *_args, **_kwargs: {"count": {"marks": 7}})
+    monkeypatch.setattr(analytics, "get_authorized_session", lambda *_args, **_kwargs: {"session_id": "test_session_123"})
+    monkeypatch.setattr(analytics, "get_session_stats", lambda *_args, **_kwargs: {"count": {"marks": 7}})
 
     response = client.get("/session/test_session_123/stats")
 
@@ -47,8 +48,8 @@ def test_session_stats(monkeypatch):
 def test_teacher_stats_empty(monkeypatch):
     mock_db = mongomock.MongoClient().omnimark
     mock_db.users.insert_one({"email": "new@teacher.com", "role": "teacher"})
-    monkeypatch.setattr(app_module, "db", mock_db)
-    monkeypatch.setattr(eda, "db", mock_db)
+    for m in [utils, eda]:
+        monkeypatch.setattr(m, "db", mock_db)
 
     response = client.get("/dashboard/teacher_stats", params={"teacher_email": "new@teacher.com"})
 
@@ -57,7 +58,8 @@ def test_teacher_stats_empty(monkeypatch):
 
 def test_session_stats_empty(monkeypatch):
     mock_db = mongomock.MongoClient().omnimark
-    monkeypatch.setattr(app_module, "db", mock_db)
+    for m in [utils]:
+        monkeypatch.setattr(m, "db", mock_db)
 
     response = client.get("/session/invalid_session/stats")
 

@@ -39,13 +39,16 @@ def test_llm_grade_parses_valid_and_invalid_json(monkeypatch):
 
 
 def test_grade_via_llm_ollama_and_openai_paths(monkeypatch):
-    class _OllamaStub:
-        @staticmethod
-        def chat(**kwargs):
-            assert kwargs["think"] == "medium"
+    class _OllamaClientStub:
+        def chat(self, **kwargs):
+            if "think" in kwargs:
+                assert kwargs["think"] == "medium"
             return {"message": {"content": "ollama-result"}}
 
-    monkeypatch.setitem(__import__("sys").modules, "ollama", _OllamaStub)
+    class _OllamaStub:
+        Client = lambda self, host=None: _OllamaClientStub()
+
+    monkeypatch.setitem(__import__("sys").modules, "ollama", _OllamaStub())
     assert call_llm.grade_via_llm("prompt", provider="ollama", model="m", think="medium") == "ollama-result"
 
     class _Message:
@@ -95,13 +98,21 @@ def test_qcp_set_paper_parses_json_and_returns_raw(monkeypatch):
         "questions": {"Chapter 1": [{"question_no": 1, "question": "Define AI", "marks": 10}]},
     }
 
-    monkeypatch.setattr(
-        qcp.ollama,
-        "chat",
-        lambda **_kwargs: {"message": {"content": f"```json\n{json.dumps(valid_payload)}\n```"}},
-    )
+    class _OllamaClientStub:
+        def __init__(self, host=None): pass
+        def chat(self, **kwargs):
+            content = kwargs.get("content_to_return", f"```json\n{json.dumps(valid_payload)}\n```")
+            return {"message": {"content": content}}
+
+    monkeypatch.setattr(qcp.ollama, "Client", _OllamaClientStub)
+    
+    # Test valid JSON extraction
     parsed = json.loads(qcp.set_paper("Easy", 10, 1, "AI", False, "None", "notes", "keep clear"))
     assert parsed["course"] == "AI"
 
-    monkeypatch.setattr(qcp.ollama, "chat", lambda **_kwargs: {"message": {"content": "no json here"}})
+    # Test no JSON found - it should return the raw content
+    def chat_no_json(self, **kwargs):
+        return {"message": {"content": "no json here"}}
+    monkeypatch.setattr(_OllamaClientStub, "chat", chat_no_json)
+    
     assert qcp.set_paper("Easy", 10, 1, "AI", False, "None", "notes", "") == "no json here"

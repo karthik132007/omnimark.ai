@@ -335,33 +335,33 @@ Session analytics becomes available
 
 ```text
 omnimark.ai/
-├── backend/
-│   ├── app.py
-│   ├── auth.py
-│   ├── config.py
-│   ├── db.py
-│   ├── schemas.py
-│   └── worker/
-│       ├── celery_app.py
-│       ├── files.py
-│       └── work.py
-├── Engine/
-│   ├── OCR/
-│   ├── grade/
-│   ├── cheat_detection/
-│   ├── Dashbord_data/
-│   ├── OMI/
-│   ├── QCP/
-│   ├── call_llm.py
-│   ├── encoder.py
-│   └── helpers.py
-├── frontend/
-├── tests/
-├── Datasets/
-├── media/
-├── requirements.txt
-├── docker-compose.yml
-└── package.json
+├── [backend/](./backend/)
+│   ├── [app.py](./backend/app.py)
+│   ├── [auth.py](./backend/auth.py)
+│   ├── [config.py](./backend/config.py)
+│   ├── [db.py](./backend/db.py)
+│   ├── [schemas.py](./backend/schemas.py)
+│   └── [worker/](./backend/worker/)
+│       ├── [celery_app.py](./backend/worker/celery_app.py)
+│       ├── [files.py](./backend/worker/files.py)
+│       └── [work.py](./backend/worker/work.py)
+├── [Engine/](./Engine/)
+│   ├── [OCR/](./Engine/OCR/)
+│   ├── [grade/](./Engine/grade/)
+│   ├── [cheat_detection/](./Engine/cheat_detection/)
+│   ├── [Dashbord_data/](./Engine/Dashbord_data/)
+│   ├── [OMI/](./Engine/OMI/)
+│   ├── [QCP/](./Engine/QCP/)
+│   ├── [call_llm.py](./Engine/call_llm.py)
+│   ├── [encoder.py](./Engine/encoder.py)
+│   └── [helpers.py](./Engine/helpers.py)
+├── [frontend/](./frontend/)
+├── [tests/](./tests/)
+├── [Datasets/](./Datasets/)
+├── [media/](./media/)
+├── [requirements.txt](./requirements.txt)
+├── [docker-compose.yml](./docker-compose.yml)
+└── [package.json](./package.json)
 ```
 
 ## 7. Runtime Configuration
@@ -394,7 +394,7 @@ Docker configuration (with persistent volumes):
 
 ## 8. Deployment with Docker
 
-The project is fully Dockerized and can be started using Docker Compose:
+The project is fully Dockerized and can be started using [docker-compose.yml](./docker-compose.yml):
 
 ```bash
 docker-compose up --build
@@ -425,7 +425,7 @@ python3 -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r [requirements.txt](./requirements.txt)
 
 # Set environment variables
 export MONGO_URI="mongodb://localhost:27017/omnimark"
@@ -434,13 +434,13 @@ export LLM_BASE_URL="https://api.openai.com/v1"
 export LLM_API_KEY="your-api-key"
 
 # Run backend server
-uvicorn backend.app:app --reload --host 0.0.0.0 --port 8000
+uvicorn [backend/app.py](./backend/app.py):app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### 9.3 Frontend Setup
 
 ```bash
-cd frontend
+cd [frontend/](./frontend/)
 
 # Install dependencies
 npm install
@@ -458,7 +458,7 @@ Start worker from repository root in a separate terminal:
 
 ```bash
 source .venv/bin/activate
-celery -A backend.worker.celery_app:celery_app worker --loglevel=info --pool=solo
+celery -A [backend/worker/celery_app.py](./backend/worker/celery_app.py):celery_app worker --loglevel=info --pool=solo
 ```
 
 SQLite files (`celerydb.sqlite` and `celery_results.sqlite`) will be created in the root directory.
@@ -591,9 +591,17 @@ Primary collections used by runtime code:
 - Result listing by roll number.
 - Reevaluation request submission per session.
 
+## 13.6 Source Code Modules
+Detailed implementation logic can be found in:
+- [Engine/OCR/ocr.py](./Engine/OCR/ocr.py): OCR fallback logic.
+- [Engine/grade/nlp.py](./Engine/grade/nlp.py): NLP grading engine.
+- [Engine/grade/llm.py](./Engine/grade/llm.py): LLM grading engine.
+- [Engine/cheat_detection/main.py](./Engine/cheat_detection/main.py): Cheat detection entry point.
+- [backend/worker/work.py](./backend/worker/work.py): Main Celery task implementations.
+
 ## 14. Testing and Validation
 
-The repository contains 23 Python test files under `tests/` covering:
+The repository contains 23 Python test files under [tests/](./tests/) covering:
 - auth flows,
 - route behavior,
 - worker processing,
@@ -619,11 +627,11 @@ pytest
 ### 15.2 Security & Operational Notes
 - **Ollama Service Requirement:** For production VM deployments, the Ollama service/daemon must be installed and running on the host or a reachable server. Ensure the required models (e.g., `gemma4:31b-cloud`, `qwen3-coder-next:cloud`) are pulled using `ollama pull <model_name>`. The application communicates with the Ollama API; merely installing the python library is insufficient.
 - Production should upgrade Celery to use managed Redis/RabbitMQ for robustness at scale.
-- `backend/config.py` enforces required env checks and CORS restrictions in production mode.
+- [backend/config.py](./backend/config.py) enforces required env checks and CORS restrictions in production mode.
 - Sensitive keys (JWT_SECRET, API keys) must be managed via secure vaults in production.
 
 ### 15.3 Dependency Source of Truth
-- `backend/pyproject.toml` natively handles dependencies (PEP-621); `requirements.txt` provided for backward compatibility.
+- [backend/pyproject.toml](./backend/pyproject.toml) natively handles dependencies (PEP-621); [requirements.txt](./requirements.txt) provided for backward compatibility.
 
 ## 16. Claims, Benchmarks, and Evidence Policy
 

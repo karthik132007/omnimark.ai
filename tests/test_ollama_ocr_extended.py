@@ -24,11 +24,13 @@ def test_ocr_with_llm_returns_trimmed_content(monkeypatch):
 
     captured = {}
 
-    def _chat(**kwargs):
-        captured.update(kwargs)
-        return {"message": {"content": "  extracted text  "}}
+    class _OllamaClientStub:
+        def __init__(self, host=None): pass
+        def chat(self, **kwargs):
+            captured.update(kwargs)
+            return {"message": {"content": "  extracted text  "}}
 
-    monkeypatch.setattr(ollama_ocr.ollama, "chat", _chat)
+    monkeypatch.setattr(ollama_ocr.ollama, "Client", _OllamaClientStub)
 
     result = ollama_ocr.ocr_with_llm("image.jpg")
 

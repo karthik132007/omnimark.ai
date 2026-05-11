@@ -74,6 +74,26 @@ def get_llm_default_model() -> str:
 def get_llm_reevaluate_model() -> str:
     return os.getenv("LLM_REEVALUATE_MODEL", get_llm_default_model())
 
+
+def get_smtp_config():
+    return {
+        "host": os.getenv("SMTP_HOST", "smtp.gmail.com").strip(),
+        "port": int(os.getenv("SMTP_PORT", "587")),
+        "user": os.getenv("SMTP_USER", "").strip(),
+        "password": os.getenv("SMTP_PASSWORD", "").strip(),
+        "sender": os.getenv("SMTP_SENDER", os.getenv("SMTP_USER", "")).strip(),
+    }
+
+
+def get_sms_config():
+    return {
+        "provider": os.getenv("SMS_PROVIDER", "logging").strip().lower(),
+        "twilio_sid": os.getenv("TWILIO_ACCOUNT_SID", "").strip(),
+        "twilio_token": os.getenv("TWILIO_AUTH_TOKEN", "").strip(),
+        "twilio_number": os.getenv("TWILIO_FROM_NUMBER", "").strip(),
+    }
+
+
 FEATURE_FLAGS = {
     "generative_synthetic_dataset_augmentation": os.getenv("FEATURE_SYNTHETIC_DATASET", "false").lower() == "true",
     "self_supervised_handwriting_recognition": os.getenv("FEATURE_SELF_SUPERVISED_HR", "false").lower() == "true",
