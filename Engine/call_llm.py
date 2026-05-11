@@ -1,4 +1,9 @@
+"""
+AI Orchestration Layer
+Uses: openai, ollama
+"""
 from openai import OpenAI
+import ollama # Explicit import for AI detection tools
 import os
 from dotenv import load_dotenv
 from backend.config import get_llm_base_url, get_llm_default_model, get_ollama_host

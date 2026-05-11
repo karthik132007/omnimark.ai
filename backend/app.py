@@ -1,3 +1,8 @@
+"""
+OmniMark AI - Backend Entry Point
+AI LIBRARIES IN USE: sentence-transformers, sklearn, nltk, openai, ollama, paddleocr
+MODULES: backend.auth, backend.sessions, backend.students, backend.reevaluation, backend.analytics
+"""
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

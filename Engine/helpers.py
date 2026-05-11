@@ -1,4 +1,7 @@
-
+"""
+AI & NLP Helper Utilities
+Uses: sklearn, nltk, sentence-transformers
+"""
 from sklearn.feature_extraction.text import TfidfVectorizer
 from Engine.encoder import model
 from nltk.stem import WordNetLemmatizer

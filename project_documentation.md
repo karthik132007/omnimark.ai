@@ -160,7 +160,14 @@ Implemented request loop:
 
 This preserves an auditable `reevaluation_history` trail per evaluated script with actor, timestamp, before/after state.
 
-### 3.9 Question Paper Composer
+### 3.9 Notification Service (Implemented)
+
+The system features a centralized `NotificationService` (`backend/services/notification.py`) that handles:
+- **Session Completion**: Notifies teachers when a background evaluation task finishes.
+- **Reevaluation Updates**: Notifies students when their request is approved or rejected.
+- **Multi-channel Support**: SMTP for emails and Twilio for SMS.
+
+### 3.10 Question Paper Composer
 
 QCP endpoint (`POST /QCP`) supports generating question papers from:
 - requested structure/preferences (difficulty, max_marks, number of questions, course, choice availability/type),
@@ -400,7 +407,6 @@ These are highly implementable features that build directly on our current data 
 - **Student Answer Script Visibility**: Allow students to securely request and view their annotated or processed PDF answer scripts, providing vital context when they initiate a reevaluation request.
 - **Security and Authentication Hardening**: Address identified IDOR vulnerability by enforcing strict JWT validation and Role-Based Access Control (RBAC) on the student module endpoints.
 - **Test Coverage and Pipeline Resilience**: Address explicitly identified gaps in critical pipeline testing. Substantially increase coverage for `backend/worker/work.py` with expanded error handling scenarios.
-- **Enhanced Notification Infrastructure (In Progress)**: Building automated alerting systems. Integrating email and **SMS notifications** to alert teachers of session completion and reevaluation requests.
 
 ### 13.2 Intermediate Enhancements (Future Integration)
 These features require moderate architectural additions but integrate smoothly into the existing `Engine/` abstraction layers.

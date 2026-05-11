@@ -63,9 +63,86 @@ def test_approve_reevaluation_request_already_approved(monkeypatch):
     assert exc.value.status_code == 400
     assert exc.value.detail == "Request already approved"
 
-def test_reject_reevaluation_request_invalid_id():
+def test_approve_reevaluation_request_with_notification(monkeypatch):
+    req_id = str(ObjectId())
+    req = {
+        "_id": ObjectId(req_id),
+        "session_id": "sess_1",
+        "rollnum": 101,
+        "status": "pending"
+    }
+    monkeypatch.setattr("backend.reevaluation.resolve_teacher_identity", lambda *args, **kwargs: {"email": "t@e.com", "id": "tid"})
+    
+    # Mock db.student_requests
+    mock_req_coll = MagicMock()
+    mock_req_coll.find_one.return_value = req
+    monkeypatch.setattr(db, "student_requests", mock_req_coll)
+
+    # Mock db.sessions
+    mock_sess_coll = MagicMock()
+    mock_sess_coll.find_one.return_value = {"session_id": "sess_1", "teacher_email": "t@e.com", "preferences": {}}
+    monkeypatch.setattr(db, "sessions", mock_sess_coll)
+
+    # Mock db.results
+    mock_results_coll = MagicMock()
+    mock_results_coll.find_one.return_value = {"session_id": "sess_1", "student_rollnum": 101, "_id": ObjectId()}
+    monkeypatch.setattr(db, "results", mock_results_coll)
+
+    # Mock db.students
+    mock_students_coll = MagicMock()
+    mock_students_coll.find_one.return_value = {"email": "s@e.com", "name": "John"}
+    monkeypatch.setattr(db, "students", mock_students_coll)
+
+    # Mock _perform_reevaluation
+    monkeypatch.setattr("backend.reevaluation._perform_reevaluation", lambda *args: {"marks": 10})
+    # Mock _append_reevaluation_history
+    monkeypatch.setattr("backend.reevaluation._append_reevaluation_history", lambda *args, **kwargs: {})
+    
+    # Mock NotificationService
+    mock_notify = MagicMock()
+    import sys
+    notify_mod = MagicMock()
+    notify_mod.NotificationService = mock_notify
+    monkeypatch.setitem(sys.modules, "backend.services.notification", notify_mod)
+
+    from backend.reevaluation import approve_reevaluation_request
+    res = approve_reevaluation_request(req_id, None, {"role": "teacher", "email": "t@e.com", "id": "tid"})
+    
+    assert res["message"] == "Reevaluation approved and applied"
+    mock_notify.notify_reevaluation_update.assert_called_once_with("s@e.com", "John", "approved")
+
+def test_reject_reevaluation_request_with_notification(monkeypatch):
+    req_id = str(ObjectId())
+    req = {
+        "_id": ObjectId(req_id),
+        "session_id": "sess_1",
+        "rollnum": 101,
+        "status": "pending"
+    }
+    monkeypatch.setattr("backend.reevaluation.resolve_teacher_identity", lambda *args, **kwargs: {"email": "t@e.com", "id": "tid"})
+    
+    # Mock db.student_requests
+    mock_req_coll = MagicMock()
+    mock_req_coll.find_one.return_value = req
+    monkeypatch.setattr(db, "student_requests", mock_req_coll)
+
+    # Mock db.sessions
+    monkeypatch.setattr("backend.reevaluation.get_authorized_session", lambda *args, **kwargs: {})
+
+    # Mock db.students
+    mock_students_coll = MagicMock()
+    mock_students_coll.find_one.return_value = {"email": "s@e.com", "name": "John"}
+    monkeypatch.setattr(db, "students", mock_students_coll)
+
+    # Mock NotificationService
+    mock_notify = MagicMock()
+    import sys
+    notify_mod = MagicMock()
+    notify_mod.NotificationService = mock_notify
+    monkeypatch.setitem(sys.modules, "backend.services.notification", notify_mod)
+
     from backend.reevaluation import reject_reevaluation_request
-    with pytest.raises(HTTPException) as exc:
-        reject_reevaluation_request("invalid-id", "reason", None, {"role": "teacher"})
-    assert exc.value.status_code == 400
-    assert "Invalid request id" in exc.value.detail
+    res = reject_reevaluation_request(req_id, "Bad luck", None, {"role": "teacher", "email": "t@e.com", "id": "tid"})
+    
+    assert res["message"] == "Reevaluation request rejected"
+    mock_notify.notify_reevaluation_update.assert_called_once_with("s@e.com", "John", "rejected")

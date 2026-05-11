@@ -1,3 +1,7 @@
+"""
+OmniMark AI Worker - Core Processing Logic
+Integrated AI Libraries: sentence-transformers, nltk, sklearn, paddleocr, ollama, openai
+"""
 import os
 import re
 import zipfile

@@ -168,6 +168,21 @@ def approve_reevaluation_request(
         {"_id": req["_id"]},
         {"$set": {"status": "approved", "approved_at": datetime.now(timezone.utc).isoformat()}},
     )
+
+    # Notify student
+    try:
+        student = db.students.find_one({"rollnum": req.get("rollnum")}, {"email": 1, "name": 1})
+        if student and student.get("email"):
+            from backend.services.notification import NotificationService
+            NotificationService.notify_reevaluation_update(
+                student["email"], 
+                student.get("name", "Student"), 
+                "approved"
+            )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to notify student: {str(e)}")
+
     return {"message": "Reevaluation approved and applied", "request_id": request_id, "history_entry": history_entry}
 
 @router.post("/teacher/reevaluation-requests/{request_id}/reject")
@@ -202,4 +217,19 @@ def reject_reevaluation_request(
             }
         },
     )
+
+    # Notify student
+    try:
+        student = db.students.find_one({"rollnum": req.get("rollnum")}, {"email": 1, "name": 1})
+        if student and student.get("email"):
+            from backend.services.notification import NotificationService
+            NotificationService.notify_reevaluation_update(
+                student["email"], 
+                student.get("name", "Student"), 
+                "rejected"
+            )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to notify student: {str(e)}")
+
     return {"message": "Reevaluation request rejected", "request_id": request_id}
