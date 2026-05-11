@@ -215,8 +215,8 @@ created → uploaded → processing → processed
 │  ├─ users                │      │  ├─ Message DB   │
 │  ├─ students             │      │  └─ Result DB    │
 │  ├─ sessions             │      │                  │
-│  ├─ results              │      │ (No Redis/ext.   │
-│  ├─ cheat_reports        │      │  services req.)  │
+│  ├─ results              │      │                  │
+│  ├─ cheat_reports        │      │                  │
 │  └─ reevaluation_history │      │                  │
 └──────────────────────────┘      └──────────────────┘
                  ▲                         ▲
