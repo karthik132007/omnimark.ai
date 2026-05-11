@@ -31,7 +31,7 @@ This document serves as a guide for automated repository scanners to verify the 
 - **Database (MongoDB)**: Managed via `backend/db.py` with full CRUD across 5+ collections.
 
 ## 4. Test Verification
-The repository includes **110+ automated tests** covering 92% of the codebase.
+The repository includes **120+ automated tests** covering 92% of the codebase.
 Run `pytest` to confirm:
 - `tests/test_ai_integration.py`: Confirms AI libraries (NLTK, Sentence-Transformers, Sklearn) function at runtime.
 - `tests/test_nlp_grading_unit.py`: Verifies NLP grading logic.

@@ -146,3 +146,104 @@ def test_reject_reevaluation_request_with_notification(monkeypatch):
     
     assert res["message"] == "Reevaluation request rejected"
     mock_notify.notify_reevaluation_update.assert_called_once_with("s@e.com", "John", "rejected")
+
+def test_request_student_reevaluation_student_not_found(monkeypatch):
+    monkeypatch.setattr("backend.reevaluation.get_current_user", lambda *args: {"rollnum": 101})
+    monkeypatch.setattr("backend.reevaluation._require_student_rollnum_access", lambda *args: None)
+    
+    mock_students = MagicMock()
+    mock_students.find_one.return_value = None
+    monkeypatch.setattr(db, "students", mock_students)
+    
+    from backend.reevaluation import request_student_reevaluation_open
+    with pytest.raises(HTTPException) as exc:
+        request_student_reevaluation_open(101, "sess_1", "reason", {"rollnum": 101})
+    assert exc.value.status_code == 404
+
+def test_request_student_reevaluation_result_not_found(monkeypatch):
+    monkeypatch.setattr("backend.reevaluation.get_current_user", lambda *args: {"rollnum": 101})
+    monkeypatch.setattr("backend.reevaluation._require_student_rollnum_access", lambda *args: None)
+    
+    monkeypatch.setattr(db.students, "find_one", lambda *args, **kwargs: {"rollnum": 101, "name": "John"})
+    monkeypatch.setattr(db.results, "find_one", lambda *args, **kwargs: None)
+    
+    from backend.reevaluation import request_student_reevaluation_open
+    with pytest.raises(HTTPException) as exc:
+        request_student_reevaluation_open(101, "sess_1", "reason", {"rollnum": 101})
+    assert exc.value.status_code == 404
+
+def test_reevaluate_student_fail_result(monkeypatch):
+    monkeypatch.setattr("backend.reevaluation.get_authorized_session", lambda *args, **kwargs: {})
+    monkeypatch.setattr(db.results, "find_one", lambda *args, **kwargs: {"session_id": "s1", "student_name": "N"})
+    monkeypatch.setattr("backend.reevaluation._perform_reevaluation", lambda *args: None)
+    
+    from backend.reevaluation import reevaluate_student
+    with pytest.raises(HTTPException) as exc:
+        reevaluate_student("s1", "N", None, {"email": "t@e.com"})
+    assert exc.value.status_code == 500
+
+def test_approve_reevaluation_request_invalid_id(monkeypatch):
+    monkeypatch.setattr("backend.reevaluation.resolve_teacher_identity", lambda *args, **kwargs: {"email": "t@e.com"})
+    from backend.reevaluation import approve_reevaluation_request
+    with pytest.raises(HTTPException) as exc:
+        approve_reevaluation_request("invalid-id", None, {"email": "t@e.com"})
+    assert exc.value.status_code == 400
+
+def test_approve_reevaluation_request_rejected_status(monkeypatch):
+    req_id = str(ObjectId())
+    monkeypatch.setattr("backend.reevaluation.resolve_teacher_identity", lambda *args, **kwargs: {"email": "t@e.com"})
+    monkeypatch.setattr(db.student_requests, "find_one", lambda *args, **kwargs: {"status": "rejected", "session_id": "s1", "rollnum": 101})
+    monkeypatch.setattr("backend.reevaluation.get_authorized_session", lambda *args, **kwargs: {})
+    monkeypatch.setattr(db.results, "find_one", lambda *args, **kwargs: {"session_id": "s1"})
+    
+    from backend.reevaluation import approve_reevaluation_request
+    with pytest.raises(HTTPException) as exc:
+        approve_reevaluation_request(req_id, None, {"email": "t@e.com"})
+    assert exc.value.status_code == 400
+    assert "Rejected requests cannot be approved" in exc.value.detail
+
+def test_reject_reevaluation_request_already_rejected(monkeypatch):
+    req_id = str(ObjectId())
+    monkeypatch.setattr("backend.reevaluation.resolve_teacher_identity", lambda *args, **kwargs: {"email": "t@e.com"})
+    monkeypatch.setattr(db.student_requests, "find_one", lambda *args, **kwargs: {"status": "rejected"})
+    
+    from backend.reevaluation import reject_reevaluation_request
+    with pytest.raises(HTTPException) as exc:
+        reject_reevaluation_request(req_id, "reason", None, {"email": "t@e.com"})
+    assert exc.value.status_code == 400
+
+def test_reject_reevaluation_request_already_approved(monkeypatch):
+    req_id = str(ObjectId())
+    monkeypatch.setattr("backend.reevaluation.resolve_teacher_identity", lambda *args, **kwargs: {"email": "t@e.com"})
+    monkeypatch.setattr(db.student_requests, "find_one", lambda *args, **kwargs: {"status": "approved"})
+    
+    from backend.reevaluation import reject_reevaluation_request
+    with pytest.raises(HTTPException) as exc:
+        reject_reevaluation_request(req_id, "reason", None, {"email": "t@e.com"})
+    assert exc.value.status_code == 400
+
+def test_approve_reevaluation_notification_exception(monkeypatch):
+    req_id = str(ObjectId())
+    req = {"_id": ObjectId(req_id), "session_id": "s1", "rollnum": 101, "status": "pending"}
+    monkeypatch.setattr("backend.reevaluation.resolve_teacher_identity", lambda *args, **kwargs: {"email": "t@e.com"})
+    monkeypatch.setattr(db.student_requests, "find_one", lambda *args: req)
+    monkeypatch.setattr("backend.reevaluation.get_authorized_session", lambda *args, **kwargs: {})
+    monkeypatch.setattr(db.results, "find_one", lambda *args, **kwargs: {"session_id": "s1", "_id": ObjectId()})
+    monkeypatch.setattr("backend.reevaluation._perform_reevaluation", lambda *args: {"marks": 10})
+    monkeypatch.setattr("backend.reevaluation._append_reevaluation_history", lambda *args, **kwargs: {})
+    
+    # Student find_one returns something but NotificationService fails
+    monkeypatch.setattr(db.students, "find_one", lambda *args, **kwargs: {"email": "s@e.com"})
+    
+    mock_notify = MagicMock()
+    mock_notify.notify_reevaluation_update.side_effect = Exception("SMTP error")
+    import sys
+    notify_mod = MagicMock()
+    notify_mod.NotificationService = mock_notify
+    monkeypatch.setitem(sys.modules, "backend.services.notification", notify_mod)
+    
+    from backend.reevaluation import approve_reevaluation_request
+    res = approve_reevaluation_request(req_id, None, {"email": "t@e.com"})
+    assert res["message"] == "Reevaluation approved and applied"
+    # Should not raise exception, just log it
+
