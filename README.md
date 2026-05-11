@@ -78,7 +78,7 @@ The system is multi-role by design:
 - Delete session and associated results.
 
 ### 2.4 NLP and LLM Grading
-- **Explainable AI (XAI) per-question Feedback (LLM-only)**: The LLM engine provides fine-grained, interpretable grading reports (XAI). It returns itemized score breakdowns and specific qualitative feedback per question rather than just a single global score (see prompt mechanics in `[Engine/helpers.py](Engine/helpers.py) -> make_prompt()`). Note: This per-question explanation is available for the LLM grading path only.
+- **Explainable AI (XAI) per-question Feedback (LLM-only)**: The LLM engine provides fine-grained, interpretable grading reports (XAI). It returns itemized score breakdowns and specific qualitative feedback.
 - **NLP grading path**:
   - stopword filtering,
   - keyword extraction via TF-IDF,
@@ -136,7 +136,7 @@ The system is multi-role by design:
   - toppers,
   - score distribution,
   - risk bands.
-- **CSV Result Exports:** Teachers can instantly export session evaluation results as a `.csv` file directly from the analytics dashboard (implemented natively in `frontend/src/components/teacher-dashboard/AnalyticsView.tsx`).
+- **CSV Result Exports:** Teachers can instantly export session evaluation results as a `.csv` file directly from the analytics dashboard.
 - OMI endpoint generates structured teaching insights by prompting an LLM with dashboard summary stats.
 
 ### 2.9 Reevaluation Governance
@@ -185,7 +185,243 @@ The system is multi-role by design:
 
 ### 4.3 Session State Progression
 Typical status flow in `sessions` collection:
-- `created` -> `uploaded` -> `processing` -> `processed`
+- `created` → `uploaded` → `processing` → `processed`
+
+### 4.4 System Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        CLIENT LAYER (Web Browser)                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────────┐     │
+│  │  Teacher Portal  │  │  Student Portal  │  │ University Dashboard │     │
+│  │                  │  │                  │  │                      │     │
+│  │ • Session Setup  │  │ • View Results   │  │ • User Management    │     │
+│  │ • File Upload    │  │ • Request Reeval │  │ • Analytics          │     │
+│  │ • Monitoring     │  │                  │  │                      │     │
+│  │ • Analytics      │  │                  │  │                      │     │
+│  └──────────────────┘  └──────────────────┘  └──────────────────────┘     │
+│                                                                              │
+└──────────────────────────────────┬───────────────────────────────────────────┘
+                                   │
+                    HTTPS / REST API / WebSocket
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      BACKEND API LAYER (FastAPI)                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │  Authentication & Authorization                                      │  │
+│  │  ├─ JWT Token Management                                             │  │
+│  │  ├─ Role-based Access Control (RBAC)                                │  │
+│  │  └─ Email Normalization & Password Hashing (bcrypt)                 │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │  Request Handlers & Orchestration                                    │  │
+│  │  ├─ /auth          (Login, Register, Auth flows)                     │  │
+│  │  ├─ /session       (Create, Upload, Delete sessions)                │  │
+│  │  ├─ /results       (Fetch evaluation results)                        │  │
+│  │  ├─ /dashboard     (Analytics summaries)                             │  │
+│  │  ├─ /omi           (Insights generation)                             │  │
+│  │  ├─ /qcp           (Question Paper Composer)                         │  │
+│  │  ├─ /cheat         (Cheat detection reports)                         │  │
+│  │  └─ /reevaluation  (Request & approval workflows)                    │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │  Session Lifecycle Manager                                           │  │
+│  │  ├─ State Transitions (created → uploaded → processing → processed) │  │
+│  │  ├─ File Handling (PDF uploads, ZIP extraction)                      │  │
+│  │  └─ Job Dispatching to Celery Workers                               │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+└──────────────────────────────────┬───────────────────────────────────────────┘
+                                   │
+                        Job Enqueue / Status Poll
+                                   │
+                    ┌──────────────┴──────────────┐
+                    │                             │
+                    ▼                             ▼
+┌──────────────────────────────────┐  ┌──────────────────────────────────────┐
+│  DATABASE (MongoDB)              │  │  MESSAGE BROKER & JOB QUEUE         │
+├──────────────────────────────────┤  ├──────────────────────────────────────┤
+│                                  │  │  Celery Broker                       │
+│  Collections:                    │  │  └─ SQLite (local) or Redis          │
+│  ├─ users                        │  │                                      │
+│  ├─ students                     │  │  Result Backend                      │
+│  ├─ sessions                     │  │  └─ SQLite (local) or Redis          │
+│  ├─ results                      │  │                                      │
+│  ├─ classroom_students           │  │  Task Queue                          │
+│  ├─ student_requests             │  │  ├─ process_session                  │
+│  ├─ cheat_reports                │  │  └─ check_cheat_in_session           │
+│  └─ reevaluation_history         │  │                                      │
+│                                  │  │                                      │
+└──────────────────────────────────┘  └──────────────────────────────────────┘
+                    ▲                             ▲
+                    │                             │
+                    └──────────────┬──────────────┘
+                                   │
+                        Read / Write Operations
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    ASYNC WORKER LAYER (Celery)                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │  Batch Processing Pipeline (process_session task)                    │  │
+│  │                                                                       │  │
+│  │  1. ZIP File Extraction                                              │  │
+│  │     └─ Unzip student PDFs from upload                               │  │
+│  │                                                                       │  │
+│  │  2. Text Extraction & OCR                                            │  │
+│  │     ├─ PDF text extraction (native)                                  │  │
+│  │     └─ OCR fallback chain:                                           │  │
+│  │        ├─ Ollama LLM Vision OCR (primary)                           │  │
+│  │        └─ PaddleOCR (fallback)                                       │  │
+│  │                                                                       │  │
+│  │  3. Grading Engine Execution                                         │  │
+│  │     ├─ NLP Grading:                                                  │  │
+│  │     │  ├─ Stopword filtering                                         │  │
+│  │     │  ├─ TF-IDF keyword extraction                                  │  │
+│  │     │  ├─ Semantic similarity (SentenceTransformers)                │  │
+│  │     │  └─ Weighted score composition                                 │  │
+│  │     │                                                                 │  │
+│  │     └─ LLM Grading:                                                  │  │
+│  │        ├─ Structured prompt engineering                              │  │
+│  │        ├─ Explainable AI (XAI) feedback generation                  │  │
+│  │        ├─ Per-question breakdowns                                    │  │
+│  │        └─ JSON response parsing                                      │  │
+│  │                                                                       │  │
+│  │  4. Result Storage                                                   │  │
+│  │     ├─ Write result documents to MongoDB                             │  │
+│  │     ├─ Update session processing counters                            │  │
+│  │     └─ Update classroom summary records                              │  │
+│  │                                                                       │  │
+│  │  5. Cheat Detection Trigger                                          │  │
+│  │     └─ Dispatch check_cheat_in_session task                          │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │  Cheat Detection Pipeline (check_cheat_in_session task)              │  │
+│  │                                                                       │  │
+│  │  1. Pair Similarity Analysis                                         │  │
+│  │     ├─ Semantic similarity (sentence-transformers)                  │  │
+│  │     ├─ Jaccard token overlap                                         │  │
+│  │     ├─ Sequence similarity (difflib)                                 │  │
+│  │     ├─ Rare-token overlap (IDF-weighted)                             │  │
+│  │     └─ Length similarity                                             │  │
+│  │                                                                       │  │
+│  │  2. Risk Scoring                                                     │  │
+│  │     ├─ Pair-level risk score computation                             │  │
+│  │     ├─ Risk classification (minimal → critical)                      │  │
+│  │     └─ Suspicious pair flagging                                      │  │
+│  │                                                                       │  │
+│  │  3. Cluster Detection (DBSCAN)                                       │  │
+│  │     ├─ Cosine distance metric                                        │  │
+│  │     └─ Cluster-level anomaly detection                               │  │
+│  │                                                                       │  │
+│  │  4. Report Generation                                                │  │
+│  │     ├─ Session-level cheat summary                                   │  │
+│  │     ├─ Per-student cheat flags & clusters                            │  │
+│  │     └─ Write to MongoDB (results collection)                         │  │
+│  │                                                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+└──────────────────────────────────┬───────────────────────────────────────────┘
+                                   │
+                        Engine Module Calls
+                                   │
+                    ┌──────────────┴──────────────┐
+                    │                             │
+                    ▼                             ▼
+┌──────────────────────────────────┐  ┌──────────────────────────────────────┐
+│  ENGINE MODULES (Reusable)       │  │  EXTERNAL INTEGRATIONS              │
+├──────────────────────────────────┤  ├──────────────────────────────────────┤
+│                                  │  │                                      │
+│  OCR/                            │  │  LLM Providers (OpenAI-compatible)  │
+│  ├─ Image preprocessing          │  │  ├─ Grading LLM                      │
+│  ├─ Fallback chain executor      │  │  ├─ Reevaluation LLM                 │
+│  └─ Parallel processing          │  │  ├─ OMI Insights LLM                 │
+│                                  │  │  └─ QCP Generation LLM               │
+│  grade/                          │  │                                      │
+│  ├�� NLP scoring logic            │  │  OCR Services                        │
+│  ├─ LLM grading logic            │  │  ├─ Ollama (local/cloud)             │
+│  └─ XAI feedback generation      │  │  └─ PaddleOCR (local)                │
+│                                  │  │                                      │
+│  cheat_detection/                │  │  External APIs                       │
+│  ├─ Similarity computations      │  │  └─ (extensible for future)          │
+│  ├─ Risk scoring                 │  │                                      │
+│  └─ Cluster analysis             │  │                                      │
+│                                  │  │                                      │
+│  Dashboard_data/                 │  │                                      │
+│  ├─ Aggregation helpers          │  │                                      │
+│  └─ Summary computations         │  │                                      │
+│                                  │  │                                      │
+│  OMI/                            │  │                                      │
+│  └─ Insight generation           │  │                                      │
+│                                  │  │                                      │
+│  QCP/                            │  │                                      │
+│  └─ Question generation          │  │                                      │
+│                                  │  │                                      │
+│  encoder.py                      │  │                                      │
+│  └─ Semantic encoding            │  │                                      │
+│                                  │  │                                      │
+│  helpers.py                      │  │                                      │
+│  └─ Utility functions            │  │                                      │
+│                                  │  │                                      │
+└──────────────────────────────────┘  └──────────────────────────────────────┘
+```
+
+---
+
+### 4.5 Data Flow Overview
+
+**Synchronous Request Flow:**
+```
+Browser Request
+    ↓
+FastAPI Router (Validation & Auth)
+    ↓
+Business Logic Handler
+    ↓
+Database Query/Write (MongoDB)
+    ↓
+Response Serialization
+    ↓
+Browser Response
+```
+
+**Asynchronous Processing Flow:**
+```
+Teacher clicks "Start Processing"
+    ↓
+FastAPI dispatches Celery task (process_session)
+    ↓
+Returns job_id to frontend
+    ↓
+Frontend polls GET /session/{id}/status
+    ↓
+Celery Worker (background):
+    ├─ Extract PDFs from ZIP
+    ├─ Run OCR & text extraction
+    ├─ Execute grading pipeline
+    ├─ Write results to MongoDB
+    ├─ Update session status
+    └─ Dispatch cheat detection task
+    ↓
+Cheat Detection Worker:
+    ├─ Compute pair similarities
+    ├─ Score risk levels
+    ├─ Cluster analysis
+    └─ Write cheat report
+    ↓
+Dashboard becomes available
+```
 
 ## 5. Tech Stack
 
@@ -470,4 +706,3 @@ We are actively evolving OmniMark AI. The following features are currently being
 - **SMS & Email Notifications**: Automated alerts for processing completion and reevaluation updates.
 - **Student Script Visibility**: Secure student access to their evaluated answer scripts.
 - **Advanced Comparative Analytics**: Longitudinal cohort insights and question difficulty profiling.
-
