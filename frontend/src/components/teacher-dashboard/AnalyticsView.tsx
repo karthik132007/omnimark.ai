@@ -21,15 +21,25 @@ import {
   Eye,
   X,
   RefreshCw,
+  Download,
 } from 'lucide-react';
 import type { TeacherSession } from '../../types/teacherDashboard';
 import type { SessionResult, NlpResult, LlmResult, CheatDetectionReport } from '../../types/teacherDashboard';
-import { getCheatReport, getSessionResults, triggerCheatDetection, reevaluateStudent } from '../../lib/teacherDashboardApi';
+import { getCheatReport, getSessionResults, triggerCheatDetection, reevaluateStudent, downloadSessionExport } from '../../lib/teacherDashboardApi';
 
 interface AnalyticsViewProps {
   selectedSession: TeacherSession | null;
   isProcessing: boolean;
 }
+
+const handleExport = async (sessionId: string, format: 'csv' | 'xlsx' = 'csv') => {
+  try {
+    await downloadSessionExport(sessionId, format);
+  } catch (error) {
+    console.error('Failed to export session results:', error);
+    alert('Export failed. Please try again.');
+  }
+};
 
 
 
@@ -82,10 +92,12 @@ const NlpAnalytics = ({
   results,
   maxMarks,
   onRunCheatDetection,
+  onExport,
 }: {
   results: SessionResult[];
   maxMarks: number;
   onRunCheatDetection: () => void;
+  onExport: () => void;
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const scores = results.map((r) => (r.result as NlpResult).marks);
@@ -130,6 +142,14 @@ const NlpAnalytics = ({
             >
               <ScanSearch className="h-3.5 w-3.5" />
               Cheat Detection
+            </button>
+            <button
+              type="button"
+              onClick={onExport}
+              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-[12px] font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export CSV
             </button>
           </div>
 
@@ -216,11 +236,13 @@ const LlmAnalytics = ({
   onRunCheatDetection,
   onReevaluate,
   reevaluations,
+  onExport,
 }: {
   results: SessionResult[];
   onRunCheatDetection: () => void;
   onReevaluate: (studentName: string) => Promise<void>;
   reevaluations: Record<string, ReevaluationSnapshot>;
+  onExport: () => void;
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<SessionResult | null>(null);
@@ -318,6 +340,14 @@ const LlmAnalytics = ({
                   >
                     <ScanSearch className="h-3.5 w-3.5" />
                     Cheat Detection
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onExport}
+                    className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-[12px] font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Export CSV
                   </button>
                 </div>
 
@@ -1106,9 +1136,15 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
           onRunCheatDetection={handleRunCheatDetection}
           onReevaluate={handleReevaluate}
           reevaluations={reevaluations}
+          onExport={() => handleExport(selectedSession?.session_id || '')}
         />
       ) : (
-        <NlpAnalytics results={results} maxMarks={maxMarks} onRunCheatDetection={handleRunCheatDetection} />
+        <NlpAnalytics
+          results={results}
+          maxMarks={maxMarks}
+          onRunCheatDetection={handleRunCheatDetection}
+          onExport={() => handleExport(selectedSession?.session_id || '')}
+        />
       )}
     </div>
   );

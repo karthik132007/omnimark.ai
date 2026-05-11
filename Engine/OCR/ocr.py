@@ -1,11 +1,18 @@
 from pdf2image import convert_from_path
 import os
+import io
+import base64
+import numpy as np
+import concurrent.futures
 from Engine.OCR.ollama_ocr import ocr_with_llm
 
-
-def _ocr_with_fallback(img_path):
+def _ocr_with_fallback(page_image):
+    buffered = io.BytesIO()
+    page_image.save(buffered, format="JPEG")
+    base64_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+    
     try:
-        llm_text = ocr_with_llm(img_path)
+        llm_text = ocr_with_llm(base64_str=base64_str)
         if isinstance(llm_text, dict) and llm_text.get("error"):
             raise RuntimeError(llm_text["error"])
         if llm_text:
@@ -20,7 +27,8 @@ def _ocr_with_fallback(img_path):
         
         # Initialize PaddleOCR (only runs once as it caches)
         ocr = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
-        result = ocr.ocr(img_path, cls=True)
+        img_array = np.array(page_image)
+        result = ocr.ocr(img_array, cls=True)
         
         if result and result[0]:
             fallback_text = "\n".join([line[1][0] for line in result[0]])
@@ -30,23 +38,21 @@ def _ocr_with_fallback(img_path):
     
     return ""
 
+def _process_page(page_tuple):
+    page_num, page_image = page_tuple
+    text = _ocr_with_fallback(page_image)
+    return {
+        "page": page_num,
+        "text": text
+    }
+
 def extract_text_from_pdf(pdf_path):
     pages = convert_from_path(pdf_path)
-
     full_text = []
 
-    for page_num, page in enumerate(pages, start=1):
-        img_path = f"temp_page_{page_num}.jpg"
-        page.save(img_path, "JPEG")
-
-        result = _ocr_with_fallback(img_path)
-
-        full_text.append({
-            "page": page_num,
-            "text": result
-        })
-
-        if os.path.exists(img_path):
-            os.remove(img_path)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        results = list(executor.map(_process_page, enumerate(pages, start=1)))
+        
+    full_text = sorted(results, key=lambda x: x["page"])
 
     return full_text

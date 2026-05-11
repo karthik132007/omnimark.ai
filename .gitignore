@@ -10,3 +10,6 @@ uploads
 notepad.txt
 celerydb.sqlite
 celery_results.sqlite
+.coverage
+htmlcov/
+.coverage.*

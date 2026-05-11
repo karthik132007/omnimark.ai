@@ -29,11 +29,12 @@ def _ensure_student_record(student_name: str):
     last = db.students.find_one({}, sort=[("rollnum", -1)])
     next_roll = int(last.get("rollnum", 0)) + 1 if last else 1
     now = datetime.now(timezone.utc).isoformat()
+    
     doc = {
         "rollnum": next_roll,
         "name": student_name,
         "name_key": normalized,
-        "password": get_password_hash("12345678"),
+        "password": get_password_hash(str(next_roll)),
         "created_at": now,
         "updated_at": now,
     }
@@ -190,6 +191,15 @@ def process_session(session_id, file_location):
     db.sessions.update_one(
         {"session_id": session_id},
         {"$set": {"status": "processed", "student_rollnums": sorted(session_rollnums)}}
+    )
+    
+    # FUTURE SCOPE: Notify teacher that processing is complete
+    from backend.services.notification import NotificationService
+    if teacher_email:
+        NotificationService.notify_session_complete(
+            email=teacher_email,
+            session_id=session_id,
+            session_name=session.get("name", "Unknown Session")
         )
 
 @celery_app.task(name="backend.worker.work.check_cheat_in_session")

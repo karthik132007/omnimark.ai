@@ -99,7 +99,7 @@ Behavioral controls include:
 
 #### LLM Engine
 Current logic:
-- builds strict JSON prompt with grading constraints,
+- builds strict JSON prompt with grading constraints that explicitly request Explainable AI (XAI) outputs such as per-question feedback. Note: This per-question explainability is available only when using the LLM engine.
 - calls configured provider/model,
 - parses JSON response,
 - returns explicit error payload when model output is non-JSON.
@@ -110,6 +110,7 @@ Also supports a dedicated reevaluation prompt flow.
 
 For handwritten/scanned workflows:
 - PDFs are rendered to images per page.
+- Pages are processed in parallel using in-memory buffers avoiding intermediary file I/O operations.
 - OCR fallback chain is applied for robustness.
 
 For non-handwritten workflows:
@@ -137,6 +138,8 @@ Dashboard summary aggregation computes:
 - topper snapshots,
 - score distributions,
 - risk-band segmentation.
+
+The frontend Analytics view (see `frontend/src/components/teacher-dashboard/AnalyticsView.tsx`) provides a **CSV Export** functionality corresponding to session results, enabling institutional record-keeping of scores, cheat risk, and confidence metrics directly from the UI.
 
 OMI (`/omi/analyze`) consumes this structured summary and produces JSON-formatted instructional insights.
 
@@ -332,37 +335,41 @@ This provides good functional confidence for current implemented pathways.
 
 ## 12. Known Risks and Limitations (Code-Observed)
 
-1. Student auto-provisioning currently uses a static default password (`12345678`) and should be replaced in hardened environments.
-2. SQLite Celery transport defaults are development-focused; production-grade queues should use Redis/RabbitMQ.
-3. `backend/pyproject.toml` is minimal and not a full dependency definition; runtime dependency truth is in `requirements.txt`.
-4. OCR quality and LLM output quality remain model/input dependent and should be monitored per deployment context.
+1. SQLite Celery transport defaults are development-focused; production-grade queues should use Redis/RabbitMQ.
+2. OCR quality and LLM output quality remain model/input dependent and should be monitored per deployment context.
 
-## 13. Claims and Evidence Policy for Hackathon Review
 
-### 13.1 Accuracy and speed claims
-Historical project documentation mentions approximately:
-- 95% accuracy,
-- 3-minute processing.
 
-In the current repo, these values are narrative/project-reported claims and are not enforced by an automated benchmark harness in tests.
+## 13. Future Scope and Planned Enhancements
 
-### 13.2 Recommended presentation framing
-For external judging, present those figures as:
-- **team-observed outcomes**,
-- not universal guarantees,
-- and pair them with reproducibility plans (fixed datasets, benchmark script, and repeated runs).
+We have structured our roadmap into three phases based on implementation complexity, current architectural readiness, and immediate project needs.
 
-This protects factual integrity while still communicating project direction.
+### 13.1 Short-Term (Upcoming) Initiatives
+These are highly implementable features that build directly on our current data models and address immediate technical debt identified in recent evaluations.
 
-## 14. Suggested Next Hardening Milestones
+- **Student Answer Script Visibility**: Allow students to securely request and view their annotated or processed PDF answer scripts, providing vital context when they initiate a reevaluation request.
+- **Security and Authentication Hardening**: Address identified IDOR vulnerability by enforcing strict JWT validation and Role-Based Access Control (RBAC) on the student module endpoints (specifically `GET /student/{rollnum}/results` and `POST /student/{rollnum}/request-reevaluation`) to prevent unauthorized access via roll number guessing.
+- **Test Coverage and Pipeline Resilience**: Address explicitly identified gaps in critical pipeline testing. Substantially increase coverage for `backend/worker/work.py` with expanded error handling visibility. Expand `Engine/OCR/ollama_ocr.py` test coverage with integration tests and explicit fallback behavior tests for when PaddleOCR or Ollama are unavailable.
+- **Basic Notification Infrastructure**: Add automated email alerting for session processing completion and updates to student reevaluation requests.
 
-1. Introduce benchmark harness for reproducible latency/accuracy reporting.
-2. Replace static student default credentialing with secure onboarding/reset flow.
-3. Move Celery production profile to managed Redis/Rabbit and tune concurrency.
-4. Add explicit schema docs (OpenAPI examples + collection contracts).
-5. Add integration tests for full session pipelines with representative fixture PDFs.
+### 13.2 Intermediate Enhancements
+These features require moderate architectural additions but integrate smoothly into the existing `Engine/` abstraction layers.
 
-## 15. Conclusion
+- **LMS Integration (Learning Management Systems)**: Implement standardized adapter layers for Moodle, Canvas, and Blackboard to handle roster synchronization and automated grade pushes.
+- **Custom Rubrics and Criteria Management**: Introduce a rubric builder UI with per-session binding, allowing grading engines to map evaluation outputs against institutional and subject-specific standards.
+- **Plagiarism and Originality Matching**: Integrate with external plagiarism detection (e.g., Turnitin/SafeAssign) to complement our in-house cheat-detection semantic clustering.
+- **Progressive Result Release**: Provide controls for teachers to embargo results and release them asynchronously across a cohort only after manual reviews are finalized.
+
+### 13.3 Long-Term Vision
+These capabilities represent systemic growth into a highly scalable, privacy-first, enterprise-grade assessment platform.
+
+- **Federated Learning and Continuous Improvement**: Build upon the reserved `FEATURE_FLAGS["federated_learning"]` to aggregate anonymized, approved reevaluation corrections across multiple institutions. This will refine NLP and LLM prompts across deployments over time without sharing raw student data.
+- **Systematic Engine Module Extensibility**: Evolve the modular `Engine/` directories (`grade/`, `OCR/`, `cheat_detection/`, etc.) into a standardized plugin interface, allowing institutions to securely plug in proprietary third-party OCR providers, grading engines, or custom risk-scoring algorithms.
+- **Advanced Comparative Analytics**: Provide longitudinal cohort insights, cross-session performance trends, and difficulty profiling for questions to feed institutional learning objectives and measure teaching effectiveness over time.
+- **Multi-Language Support**: Scale OCR and NLP grading models beyond English, supporting diverse regional exam languages and introducing rigorous UI localization capabilities for the dashboard.
+- **Production Infrastructure Hardening**: Fully transition from developmental defaults (like the SQLite Celery transport in our local compose) to durable highly available messaging queues (Redis/RabbitMQ). Implement enterprise secrets management and introduce mobile-responsive/offline-first synchronization for low-connectivity environments.
+
+## 14. Conclusion
 
 OmniMark AI, as currently implemented, is a substantial full-stack evaluation platform with real operational depth:
 - role-based governance,

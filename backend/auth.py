@@ -58,6 +58,10 @@ class StudentLoginModel(BaseModel):
     rollnum: int
     password: str
 
+class StudentChangePasswordModel(BaseModel):
+    old_password: str
+    new_password: str
+
 def _find_user_by_email(email: str):
     normalized = normalize_email(email)
     user = db.users.find_one({"email": normalized})
@@ -310,3 +314,18 @@ def teacher_dashboard(current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "teacher":
         raise HTTPException(status_code=403, detail="Only teachers can access this (univ cannot do teacher stuff)")
     return {"msg": "Welcome to teacher dashboard", "teacher_data": current_user}
+
+@router.post("/student/change-password", summary="Change Password for Student", tags=["Auth"])
+def change_student_password(data: StudentChangePasswordModel, current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "student":
+        raise HTTPException(status_code=403, detail="Only students can change their password using this endpoint")
+        
+    student = db.students.find_one({"rollnum": int(current_user["rollnum"])})
+    if not student or not _verify_login_password(student, data.old_password):
+        raise HTTPException(status_code=401, detail="Invalid old password")
+        
+    db.students.update_one(
+        {"_id": student["_id"]},
+        {"$set": {"password": get_password_hash(data.new_password)}}
+    )
+    return {"message": "Password changed successfully"}

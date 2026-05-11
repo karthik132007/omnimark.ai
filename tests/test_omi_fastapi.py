@@ -1,7 +1,31 @@
 from fastapi.testclient import TestClient
-from backend.app import app
+import mongomock
 
-client = TestClient(app)
-response = client.get("/omi/analyze?teacher_email=t1@test.in")
-print("Status Code:", response.status_code)
-print("Response JSON:", response.json())
+from backend import app as app_module
+
+
+client = TestClient(app_module.app)
+
+
+def test_omi_analyze_route_returns_json(monkeypatch):
+    mock_db = mongomock.MongoClient().omnimark
+    mock_db.users.insert_one({"email": "t1@test.in", "role": "teacher"})
+
+    monkeypatch.setattr(app_module, "db", mock_db)
+    monkeypatch.setattr(
+        app_module,
+        "get_teacher_dashboard_summary",
+        lambda *_args, **_kwargs: {"total_sessions": 1, "avg_score": 80},
+    )
+    monkeypatch.setattr(
+        app_module,
+        "explain_stats",
+        lambda stats: '{"insights": ["ok"], "summary": "done"}',
+    )
+
+    response = client.get("/omi/analyze", params={"teacher_email": "t1@test.in"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["insights"] == ["ok"]
+    assert data["summary"] == "done"

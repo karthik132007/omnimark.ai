@@ -212,6 +212,23 @@ export const getCheatReport = async (sessionId: string, teacherEmail?: string) =
   return response.data;
 };
 
+export const downloadSessionExport = async (sessionId: string, format: 'csv' | 'xlsx' = 'csv', teacherEmail?: string) => {
+  const email = resolveTeacherEmail(teacherEmail);
+  const response = await api.get(`/session/${sessionId}/export`, {
+    params: { teacher_email: email, format },
+    responseType: 'blob'
+  });
+  
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', `export_${sessionId}.${format}`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
+
 export const getMyClassStudents = async (teacherEmail?: string) => {
   const email = resolveTeacherEmail(teacherEmail);
   const response = await api.get<ClassroomStudent[] | PaginatedResponse<ClassroomStudent>>('/teacher/my-class', {

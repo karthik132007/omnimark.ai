@@ -45,7 +45,8 @@ The system is multi-role by design:
 ### 2.1 Authentication and Role Control
 - University registration (`/auth/univ/register`).
 - Unified login for university/teacher (`/auth/login`).
-- Student login with roll number (`/auth/student/login`).
+- Student login with automatic roll number provisioning (`/auth/student/login`).
+- Endpoint for students to securely change their auto-provisioned password on first login (`/student/change-password`).
 - JWT-based auth with role checks and optional auth mode where needed.
 - Email normalization logic for consistent account lookup.
 - Backward-compatibility support for legacy mixed-case emails.
@@ -73,6 +74,7 @@ The system is multi-role by design:
 - Delete session and associated results.
 
 ### 2.4 NLP and LLM Grading
+- **Explainable AI (XAI) per-question Feedback (LLM-only)**: The LLM engine provides fine-grained, interpretable grading reports (XAI). It returns itemized score breakdowns and specific qualitative feedback per question rather than just a single global score (see prompt mechanics in `[Engine/helpers.py](Engine/helpers.py) -> make_prompt()`). Note: This per-question explanation is available for the LLM grading path only.
 - **NLP grading path**:
   - stopword filtering,
   - keyword extraction via TF-IDF,
@@ -80,7 +82,7 @@ The system is multi-role by design:
   - sentence-transformer semantic similarity,
   - weighted score composition and max-marks capping.
 - **LLM grading path**:
-  - structured grading prompt,
+  - structured grading prompt that enforces Explainable AI (XAI) outputs (returns `"question_feedback"` mapping),
   - provider/model selection from preferences,
   - JSON response parsing,
   - invalid-JSON fallback payload.
@@ -90,6 +92,7 @@ The system is multi-role by design:
 - OCR fallback chain:
   1. Ollama LLM vision OCR,
   2. PaddleOCR.
+- Parallel processing of OCR operations per document with non-blocking in-memory image buffers.
 - Page-wise extraction output merged into answer text for evaluation.
 
 ### 2.6 Asynchronous Processing with Celery
@@ -129,6 +132,7 @@ The system is multi-role by design:
   - toppers,
   - score distribution,
   - risk bands.
+- **CSV Result Exports:** Teachers can instantly export session evaluation results as a `.csv` file directly from the analytics dashboard (implemented natively in `frontend/src/components/teacher-dashboard/AnalyticsView.tsx`).
 - OMI endpoint generates structured teaching insights by prompting an LLM with dashboard summary stats.
 
 ### 2.9 Reevaluation Governance
@@ -141,7 +145,7 @@ The system is multi-role by design:
 - Teacher can reject request with reason.
 - Teacher can also directly reevaluate a student result in a session.
 
-### 2.10 Question Paper Generation (QCP)
+### 2.11 Question Paper Generation (QCP)
 - Teacher submits QCP preferences + relevant PDF document.
 - Backend extracts reference text and prompts model.
 - Response returned as JSON question-paper structure (with parsing fallback behavior).
@@ -166,7 +170,7 @@ The system is multi-role by design:
 ### 4.1 Core Components
 - **Frontend (React + TS):** user interfaces for all roles.
 - **FastAPI backend:** API, validation, auth, session orchestration.
-- **Engine modules:** grading, OCR, cheat detection, QCP, and analytics helpers.
+- **Engine modules:** grading, OCR, cheat detection, QCP, and analytics helpers (including Explainable AI logic).
 - **Celery worker:** async execution for long-running workflows.
 - **MongoDB:** persistence for all lifecycle entities.
 
@@ -333,6 +337,7 @@ Why this matters:
 - `POST /session/{session_id}/process`
 - `GET /session/{session_id}/status`
 - `GET /session/{session_id}/results`
+- `GET /session/{session_id}/export` (supports `format=csv` or `format=xlsx`)
 
 ### Dashboard and analytics
 - `GET /dashboard/teacher_stats`
@@ -389,7 +394,7 @@ Primary collections used by runtime code:
 - `student_name_key`
 - `pdf_file`
 - `answer_text`
-- `result` (NLP or LLM payload)
+- `result` (NLP payload with overall marks, or LLM payload containing overall marks, per-question feedback [XAI], and explanation)
 - optional `cheat_detection`
 - optional `reevaluation_history`
 
@@ -435,7 +440,7 @@ Primary collections used by runtime code:
 
 ## 13. Testing and Validation
 
-The repository contains 16 Python test files under `tests/` covering:
+The repository contains 17 Python test files under `tests/` covering:
 - auth flows,
 - route behavior,
 - worker processing,
@@ -443,7 +448,8 @@ The repository contains 16 Python test files under `tests/` covering:
 - NLP grading units,
 - OCR fallback behavior,
 - dashboard/stat summarization,
-- OMI helper endpoints.
+- OMI helper endpoints,
+- **Future-scope architectural hooks and reporting exporters.**
 
 Run tests:
 ```bash
@@ -453,7 +459,6 @@ pytest
 ## 14. Production Notes and Known Limitations
 
 ### 14.1 Security / operational notes
-- Worker auto-creates missing student records with default password `12345678` (must be hardened for production).
 - Local SQLite-backed Celery transport is convenient but not ideal for production reliability.
 - Production should use managed Redis/RabbitMQ and hardened secret management.
 
@@ -461,22 +466,5 @@ pytest
 - `backend/config.py` enforces required env checks and CORS restrictions in production mode.
 
 ### 14.3 Dependency source of truth
-- Runtime dependencies are currently defined in `requirements.txt`.
-- `backend/pyproject.toml` is minimal and not used as full dependency manifest.
+- `backend/pyproject.toml` natively handles dependencies (PEP-621) substituting the previously minimal definition, though `requirements.txt` remains for backward compatibility.
 
-## 15. Claims, Benchmarks, and Evidence Policy
-
-This project historically references performance figures such as approximately:
-- `~95%` accuracy,
-- `~3 minutes` processing.
-
-Current repository tests do not include a formal benchmark harness asserting those exact numbers.
-For external judging, treat these as team-reported observations unless accompanied by reproducible benchmark scripts, fixed datasets, and repeatable evaluation protocol.
-
----
-
-If you are evaluating this project in a hackathon context, the strongest evidence-backed strengths are:
-- complete role-based workflow implementation,
-- async batch pipeline with Celery,
-- integrated OCR + grading + cheat detection,
-- measurable API/test surface already present in code.

@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 import mongomock
 
 from backend import app as app_module
+from backend import auth as auth_module
 
 
 client = TestClient(app_module.app)
@@ -113,6 +114,7 @@ def test_student_and_reevaluation_routes(monkeypatch):
         }
     )
     monkeypatch.setattr(app_module, "db", mock_db)
+    monkeypatch.setattr(auth_module, "db", mock_db)
     monkeypatch.setattr(app_module, "_perform_reevaluation", lambda *_args, **_kwargs: {"total_marks": 8})
     class _CheatTask:
         @staticmethod
@@ -124,13 +126,27 @@ def test_student_and_reevaluation_routes(monkeypatch):
 
     monkeypatch.setattr(app_module, "check_cheat_in_session", _CheatTask())
 
+    student_id = str(mock_db.students.find_one({"rollnum": 7})["_id"])
+    student_token = auth_module.create_access_token(
+        data={"sub": "student:7", "role": "student", "id": student_id, "rollnum": 7}
+    )
+    other_inserted = mock_db.students.insert_one({"rollnum": 8, "name": "Student Eight", "name_key": "student eight"})
+    other_student_token = auth_module.create_access_token(
+        data={"sub": "student:8", "role": "student", "id": str(other_inserted.inserted_id), "rollnum": 8}
+    )
+    student_headers = {"Authorization": f"Bearer {student_token}"}
+    other_student_headers = {"Authorization": f"Bearer {other_student_token}"}
+
     assert client.get("/teacher/my-class", params={"teacher_email": "teacher@example.com"}).status_code == 200
     assert client.get("/teacher/my-class/7", params={"teacher_email": "teacher@example.com"}).status_code == 200
-    assert client.get("/student/7/results").status_code == 200
+    assert client.get("/student/7/results", headers=student_headers).status_code == 200
+    assert client.get("/student/7/results").status_code == 401
+    assert client.get("/student/7/results", headers=other_student_headers).status_code == 403
 
     request = client.post(
         "/student/7/request-reevaluation",
         data={"session_id": session_id, "reason": "Please check again"},
+        headers=student_headers,
     )
     assert request.status_code == 200
     request_id = request.json()["request"]["request_id"]
@@ -148,6 +164,7 @@ def test_student_and_reevaluation_routes(monkeypatch):
     second_request = client.post(
         "/student/7/request-reevaluation",
         data={"session_id": session_id, "reason": "Still concerned"},
+        headers=student_headers,
     ).json()["request"]["request_id"]
     reject = client.post(
         f"/teacher/reevaluation-requests/{second_request}/reject",

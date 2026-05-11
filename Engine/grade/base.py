@@ -23,3 +23,26 @@ class AbstractGradingEngine(ABC):
             Dict[str, Any]: A dictionary containing 'marks', 'feedback', etc.
         """
         pass
+
+class GradingEngineFactory:
+    """Factory to manage and provide different grading engines."""
+    _engines = {}
+
+    @classmethod
+    def register_engine(cls, mode: str, engine_instance: AbstractGradingEngine):
+        cls._engines[mode.upper()] = engine_instance
+
+    @classmethod
+    def get_engine(cls, mode: str) -> AbstractGradingEngine:
+        engine = cls._engines.get(mode.upper())
+        if not engine:
+            # Lazy import to avoid circular dependencies
+            if mode.upper() == "LLM":
+                 from Engine.grade.llm import LLMGradingEngine
+                 return LLMGradingEngine()
+            elif mode.upper() == "NLP":
+                 from Engine.grade.nlp import NLPGradingEngine
+                 return NLPGradingEngine()
+            
+            raise ValueError(f"No grading engine registered for mode: {mode}")
+        return engine

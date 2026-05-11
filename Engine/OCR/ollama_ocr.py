@@ -11,8 +11,14 @@ def img_to_base64(img_path):
     with open(img_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode('utf-8')
 
-def ocr_with_llm(img_path):
-    base64_str = img_to_base64(img_path)
+def ocr_with_llm(img_path=None, base64_str=None):
+    if not base64_str:
+        if not img_path:
+            return {
+                "error": "No image or base64 string provided"
+            }
+        base64_str = img_to_base64(img_path)
+        
     if not base64_str:
         return {
             "error": "Failed to convert image to base64"

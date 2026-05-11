@@ -90,6 +90,15 @@ def _build_pagination_meta(total: int, offset: int, limit: int):
         "has_more": (offset + limit) < total,
     }
 
+
+def _require_student_rollnum_access(current_user: dict, rollnum: int):
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    if current_user.get("role") != "student":
+        raise HTTPException(status_code=403, detail="Only students can access this endpoint")
+    if int(current_user.get("rollnum", -1)) != int(rollnum):
+        raise HTTPException(status_code=403, detail="You can only access your own results")
+
 def resolve_teacher_identity(current_user: dict | None, teacher_email: str | None = None):
     if teacher_email:
         return {"email": normalize_email(teacher_email), "id": None}
@@ -489,7 +498,11 @@ def get_my_class_student_detail(
     }
 
 @app.get("/student/{rollnum}/results")
-def get_student_results_open(rollnum: int):
+def get_student_results_open(
+    rollnum: int,
+    current_user: dict = Depends(get_current_user),
+):
+    _require_student_rollnum_access(current_user, rollnum)
     student = db.students.find_one({"rollnum": rollnum}, {"_id": 0, "rollnum": 1, "name": 1, "name_key": 1})
     if student is None:
         raise HTTPException(status_code=404, detail="Student not found")
@@ -506,7 +519,9 @@ def request_student_reevaluation_open(
     rollnum: int,
     session_id: str = Form(...),
     reason: str = Form("Please reevaluate this result."),
+    current_user: dict = Depends(get_current_user),
 ):
+    _require_student_rollnum_access(current_user, rollnum)
     student = db.students.find_one({"rollnum": rollnum}, {"_id": 0, "rollnum": 1, "name": 1})
     if student is None:
         raise HTTPException(status_code=404, detail="Student not found")
@@ -714,6 +729,46 @@ def get_cheat_report(
         "report": None,
     }
 
+
+@app.get("/session/{session_id}/export")
+def export_session_results(
+    session_id: str,
+    format: str = Query(default="csv", regex="^(csv|xlsx)$"),
+    teacher_email: str | None = None,
+    current_user: dict | None = Depends(get_optional_current_user),
+):
+    """
+    Export session results as CSV or Excel.
+    Fully implemented using the ReportExporter foundation.
+    """
+    get_authorized_session(session_id, current_user, teacher_email)
+    
+    from Engine.reports.exporter import ReportExporter
+    from fastapi.responses import StreamingResponse, Response
+    import io
+
+    # Fetch results from DB
+    results = list(db.results.find({"session_id": session_id}, {"_id": 0}))
+    if not results:
+        raise HTTPException(status_code=404, detail="No results found to export")
+
+    filename = f"export_{session_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+    if format == "csv":
+        csv_data = ReportExporter.to_csv(results)
+        return Response(
+            content=csv_data,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}.csv"}
+        )
+    else:
+        # Excel format
+        buffer = ReportExporter.to_excel_buffer(results)
+        return StreamingResponse(
+            buffer,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}.xlsx"}
+        )
 
 @app.post("/QCP")
 def question_paper(

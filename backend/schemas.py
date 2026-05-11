@@ -11,6 +11,9 @@ class EvaluationPreferences(BaseModel):
     is_handwritten: Optional[bool] = Field(default=False, description="Whether the answers are handwritten")
     llm_provider: Optional[str] = Field(default="api", description="Provider for LLM")
     llm_model: Optional[str] = Field(default="gpt-4o", description="Model for LLM")
+    # FUTURE SCOPE: Rubric binding
+    rubric_id: Optional[str] = Field(default=None, description="Optional rubric identifier for structured grading")
+    lms_sync_enabled: Optional[bool] = Field(default=False, description="Whether to sync results back to LMS")
 
 
 class SessionCreateResponse(BaseModel):
@@ -35,6 +38,8 @@ class SessionDetail(BaseModel):
     total_files: Optional[int] = None
     processed: Optional[int] = None
     custom_prompt: Optional[str] = None
+    # FUTURE SCOPE: LMS linkage
+    external_lms_id: Optional[str] = Field(default=None, description="Linked ID in external LMS system")
 
 class QuestionParerPrefrences(BaseModel):
     difficulty:str
