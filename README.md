@@ -617,6 +617,7 @@ pytest
 - **REST API only:** No WebSocket support for live updates (polling is required).
 
 ### 15.2 Security & Operational Notes
+- **Ollama Service Requirement:** For production VM deployments, the Ollama service/daemon must be installed and running on the host or a reachable server. Ensure the required models (e.g., `gemma4:31b-cloud`, `qwen3-coder-next:cloud`) are pulled using `ollama pull <model_name>`. The application communicates with the Ollama API; merely installing the python library is insufficient.
 - Production should upgrade Celery to use managed Redis/RabbitMQ for robustness at scale.
 - `backend/config.py` enforces required env checks and CORS restrictions in production mode.
 - Sensitive keys (JWT_SECRET, API keys) must be managed via secure vaults in production.
