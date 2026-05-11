@@ -1,11 +1,12 @@
 import json
 import ollama
-from backend.config import get_omi_model
+from backend.config import get_omi_model, get_ollama_host
 def greet():
     return "Hello! How's going?"
 
 def explain_stats(stats: dict):
-    response = ollama.chat(
+    client = ollama.Client(host=get_ollama_host())
+    response = client.chat(
     model=get_omi_model(),
         messages=[
             {

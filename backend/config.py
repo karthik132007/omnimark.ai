@@ -51,6 +51,10 @@ def get_llm_base_url() -> str:
     return os.getenv("LLM_BASE_URL", "https://api.openai.com/v1").strip()
 
 
+def get_ollama_host() -> str:
+    return os.getenv("OLLAMA_HOST", "http://localhost:11434").strip()
+
+
 def get_ollama_ocr_model() -> str:
     return os.getenv("OLLAMA_OCR_MODEL", "gemma4:31b-cloud")
 
