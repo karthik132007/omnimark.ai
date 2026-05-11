@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { SessionResult } from '../types/teacherDashboard';
-import { getStudentResults, requestStudentReevaluation } from '../lib/studentApi';
+import { getStudentResults, requestStudentReevaluation, changeStudentPassword } from '../lib/studentApi';
 
 /**
  * Helper to safely extract marks from a dynamic result object.
@@ -28,6 +28,12 @@ export const StudentDashboard = () => {
   const [error, setError] = useState('');
   const [reasonBySession, setReasonBySession] = useState<Record<string, string>>({});
   const [statusMsg, setStatusMsg] = useState('');
+
+  // Password change state
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   const rollnum = useMemo(() => Number(localStorage.getItem('student_rollnum') || 0), []);
 
@@ -73,6 +79,25 @@ export const StudentDashboard = () => {
     }
   };
 
+  const submitPasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!oldPassword || !newPassword) return;
+    setStatusMsg('');
+    setError('');
+    setPasswordLoading(true);
+    try {
+      await changeStudentPassword(oldPassword, newPassword);
+      setStatusMsg('Password changed successfully.');
+      setOldPassword('');
+      setNewPassword('');
+      setShowPasswordForm(false);
+    } catch (err) {
+      setError('Failed to change password. Ensure your current password is correct.');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   return (
     <div className="page-shell min-h-screen px-4 py-6">
       <div className="mx-auto max-w-5xl space-y-4">
@@ -81,8 +106,55 @@ export const StudentDashboard = () => {
             <h1 className="text-2xl font-semibold text-slate-900">Student Dashboard</h1>
             <p className="text-sm text-slate-600">{name || 'Student'} | Roll #{rollnum}</p>
           </div>
-          <button onClick={logout} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Logout</button>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setShowPasswordForm(!showPasswordForm)} 
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              {showPasswordForm ? 'Cancel' : 'Change Password'}
+            </button>
+            <button onClick={logout} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Logout</button>
+          </div>
         </div>
+
+        {showPasswordForm && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-lg font-semibold text-slate-900">Update Password</h2>
+            <form onSubmit={submitPasswordChange} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Current Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">New Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={passwordLoading}
+                className="rounded-lg bg-slate-900 px-6 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {passwordLoading ? 'Updating...' : 'Save New Password'}
+              </button>
+            </form>
+          </div>
+        )}
 
         {statusMsg ? <p className="rounded-lg bg-cyan-50 px-3 py-2 text-sm text-cyan-700">{statusMsg}</p> : null}
         {error ? <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}

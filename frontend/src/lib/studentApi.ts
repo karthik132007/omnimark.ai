@@ -33,3 +33,11 @@ export const requestStudentReevaluation = async (rollnum: number, sessionId: str
   const response = await api.post<{ message: string }>(`/student/${rollnum}/request-reevaluation`, payload);
   return response.data;
 };
+
+export const changeStudentPassword = async (oldPassword: string, newPassword: string) => {
+  const response = await api.post<{ message: string }>('/student/change-password', {
+    old_password: oldPassword,
+    new_password: newPassword,
+  });
+  return response.data;
+};
