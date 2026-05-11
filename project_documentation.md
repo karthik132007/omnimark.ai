@@ -3,8 +3,8 @@
 ## Document Control
 - Project: OmniMark AI
 - Repository scope reviewed: backend, engine modules, frontend, worker, tests, configuration files
-- Purpose: factual, implementation-backed technical documentation for engineering review and hackathon evaluation
-- Method: code-first documentation rewrite (no speculative feature claims)
+- Purpose: factual, implementation-backed technical documentation for engineering review
+- Method: code-first documentation rewrite
 - **Live Demo**: [http://13.204.156.83](http://13.204.156.83) (Deployed on AWS)
 - **Deployment Mode**: Fully Dockerized
 
