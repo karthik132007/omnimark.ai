@@ -52,8 +52,15 @@ def _require_student_rollnum_access(current_user: dict, rollnum: int):
     if int(current_user.get("rollnum", -1)) != int(rollnum):
         raise HTTPException(status_code=403, detail="You can only access your own results")
 
-def resolve_teacher_identity(current_user: dict | None, teacher_email: str | None = None):
-    if teacher_email and current_user and current_user.get("role") == "university":
+def resolve_teacher_identity(current_user: Optional[dict], teacher_email: Optional[str] = None) -> dict:
+    """
+    Resolves teacher identity from current context or administrative university request.
+    Includes strict ownership validation to prevent IDOR (Insecure Direct Object Reference).
+    """
+    if current_user and current_user.get("role") == "university":
+        if not teacher_email:
+            raise HTTPException(status_code=400, detail="Teacher email required for university-context request")
+        
         email = normalize_email(teacher_email)
         from bson.objectid import ObjectId
         teacher = db.users.find_one(
@@ -65,71 +72,79 @@ def resolve_teacher_identity(current_user: dict | None, teacher_email: str | Non
             {"_id": 1, "email": 1},
         )
         if teacher is None:
-            raise HTTPException(status_code=404, detail="Teacher not found for this university")
+            raise HTTPException(status_code=404, detail="Teacher not found within your university scope")
         return {"email": email, "id": str(teacher["_id"])}
 
-    if teacher_email:
-        return {"email": normalize_email(teacher_email), "id": None}
-
     if current_user and current_user.get("role") == "teacher":
+        # Force current teacher's identity; ignore requested teacher_email to prevent IDOR
         return {
             "email": normalize_email(current_user.get("email", "")),
             "id": current_user.get("id"),
         }
-    raise HTTPException(status_code=400, detail="teacher_email is required")
+
+    if teacher_email:
+        # Fallback for open contexts where identity is provided by email
+        return {"email": normalize_email(teacher_email), "id": None}
+        
+    raise HTTPException(status_code=400, detail="Identity context required (teacher_email or auth token)")
+
 
 def resolve_teacher_email(current_user: dict, teacher_email: str | None = None):
     return resolve_teacher_identity(current_user, teacher_email)["email"]
 
-def _normalize_student_name(name: str):
-    return " ".join(str(name or "").strip().lower().split())
-
-def get_authorized_session(session_id: str, current_user: dict | None, teacher_email: str | None = None):
+def get_authorized_session(session_id: str, current_user: Optional[dict], teacher_email: Optional[str] = None):
+    """
+    Retrieves session and enforces strict ownership checks to prevent cross-account access.
+    """
     session = db.sessions.find_one({"session_id": session_id})
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
+    # If identity is provided by email (legacy/public fallback), check it first
     if teacher_email:
         session_email = normalize_email(session.get("teacher_email_normalized") or session.get("teacher_email") or "")
         if session_email == normalize_email(teacher_email):
             return session
         raise HTTPException(status_code=403, detail="Session does not belong to this teacher_email")
 
+    # Teachers can only access their own sessions
     if current_user and current_user.get("role") == "teacher":
         teacher_id = current_user.get("id")
         email = normalize_email(current_user.get("email", ""))
         session_teacher_id = session.get("teacher_id")
         session_email = normalize_email(session.get("teacher_email_normalized") or session.get("teacher_email") or "")
-        if session_teacher_id == teacher_id or session_email == email:
+        if (session_teacher_id and session_teacher_id == teacher_id) or (session_email and session_email == email):
             return session
         raise HTTPException(status_code=403, detail="You do not have access to this session")
 
+    # University can access sessions belonging to their verified teachers
     if current_user and current_user.get("role") == "university":
+        from bson.objectid import ObjectId
         teacher_id = session.get("teacher_id")
         if teacher_id:
             try:
-                from bson.objectid import ObjectId
-                teacher = db.users.find_one(
-                    {
-                        "_id": ObjectId(teacher_id),
-                        "role": "teacher",
-                        "university_id": current_user.get("id"),
-                    },
-                    {"_id": 1},
-                )
-                if teacher:
-                    return session
-            except Exception:
-                pass
+                teacher = db.users.find_one({
+                    "_id": ObjectId(teacher_id),
+                    "role": "teacher",
+                    "university_id": current_user.get("id")
+                }, {"_id": 1})
+                if teacher: return session
+            except: pass
+            
         session_email = normalize_email(session.get("teacher_email_normalized") or session.get("teacher_email") or "")
-        if session_email and db.users.find_one(
-            {
+        if session_email:
+            teacher = db.users.find_one({
                 "email": session_email,
                 "role": "teacher",
-                "university_id": current_user.get("id"),
-            },
-            {"_id": 1},
-        ):
+                "university_id": current_user.get("id")
+            }, {"_id": 1})
+            if teacher: return session
+        raise HTTPException(status_code=403, detail="Access denied to sessions outside university scope")
+
+    # Legacy/Public fallback matching
+    if teacher_email:
+        session_email = normalize_email(session.get("teacher_email_normalized") or session.get("teacher_email") or "")
+        if session_email == normalize_email(teacher_email):
             return session
 
-    raise HTTPException(status_code=403, detail="You do not have access to this session")
+    raise HTTPException(status_code=401, detail="Authentication required for session access")

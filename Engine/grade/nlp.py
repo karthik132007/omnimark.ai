@@ -6,10 +6,26 @@ from Engine.helpers import similarity_score
 from Engine.grade.base import AbstractGradingEngine
 
 class NLPGradingEngine(AbstractGradingEngine):
+    """
+    Hybrid NLP Grading Engine utilizing semantic embeddings and deterministic linguistic signals.
+    
+    This engine follows a weighted composition strategy:
+    1. Semantic Similarity (80%): Measures conceptual alignment using Sentence-Transformers (all-MiniLM-L6-v2).
+    2. Keyword Overlap (15%): Ensures essential technical terminology is present via TF-IDF extraction.
+    3. Length Adequacy (5%): Penalizes overly brief responses that fail to meet institutional minimums.
+    """
     def grade(self, question_paper: str, teacher_model_answer: str, student_answer: str, preferences: dict, **kwargs) -> dict:
         return Correct_NLP(student_answer, teacher_model_answer, preferences, kwargs.get('key_points'))
 
-def Correct_NLP(Student_Response,Teacher_model_answer,preferences,key_points=None): #key_points will be deprecated soon, we will move to keyword based grading instead of key point based grading 
+def Correct_NLP(Student_Response,Teacher_model_answer,preferences,key_points=None): 
+    """
+    Core implementation of the NLP grading algorithm.
+    
+    Mathematical Model:
+    Score = (Sim * 0.80) + (Keywords * 0.15) + (Length * 0.05)
+    
+    The weights are biased toward Semantic Similarity to reward understanding over rote memorization.
+    """
     marks = 0
     max_marks = preferences.get('max_marks', 100)
 

@@ -162,14 +162,28 @@ def check_cheat(student1, student2, threshold=0.82):
 
 
 def analyze_session_cheating(student_answers, threshold=0.82, min_word_count=25, max_pairs_to_check=None):
-    """Analyze session for cheating with robustness and efficiency.
-    
+    """
+    Advanced Multi-Signal Plagiarism Detection Engine.
+
+    This engine executes a quadratic pairwise comparison across all submissions in a session.
+    It synthesizes five distinct linguistic signals to generate a robust Risk Score:
+
+    1. Semantic Similarity: Uses Sentence-Transformers (all-MiniLM-L6-v2) to detect paraphrased content.
+    2. Jaccard Overlap: Measures token-level set intersection for exact match detection.
+    3. Sequence Similarity: Detects structural copying via longest common sub-sequences.
+    4. IDF-Weighted Rare Token Overlap: Penalizes shared unique terminology (high signal for collusion).
+    5. Length Delta: Filters out coincidental matches between brief responses.
+
+    Clusters are identified using DBSCAN (Density-Based Spatial Clustering of Applications with Noise)
+    to automatically group colluding students without pre-defining the number of groups.
+
     Args:
         student_answers: List of dicts with 'student_name' and 'answer_text'.
         threshold: Similarity score threshold for flagging (0.0-1.0).
         min_word_count: Minimum token count to consider an answer valid.
         max_pairs_to_check: Cap on pairs to evaluate (prevents O(n²) explosion).
     """
+
     if not isinstance(threshold, (int, float)) or threshold < 0 or threshold > 1:
         threshold = 0.82
     if max_pairs_to_check is None:
