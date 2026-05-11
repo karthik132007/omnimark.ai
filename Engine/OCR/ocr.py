@@ -27,14 +27,6 @@ def _ocr_with_fallback(img_path):
             return str(fallback_text or "").strip()
     except Exception:
         pass
-
-    try:
-        import pytesseract
-        from PIL import Image
-
-        return str(pytesseract.image_to_string(Image.open(img_path)) or "").strip()
-    except Exception:
-        pass
     
     return ""
 

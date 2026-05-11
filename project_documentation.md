@@ -1,109 +1,375 @@
-# OmniMark AI Project Documentation
+# OmniMark AI - Technical Project Documentation
 
-**Name:** OmniMark AI
+## Document Control
+- Project: OmniMark AI
+- Repository scope reviewed: backend, engine modules, frontend, worker, tests, configuration files
+- Purpose: factual, implementation-backed technical documentation for engineering review and hackathon evaluation
+- Method: code-first documentation rewrite (no speculative feature claims)
 
-**githubUrl:** [GitHub](https://github.com/karthik132007/omnimark.ai)
+## 1. Executive Overview
 
-**description:** OmniMark AI is an AI-powered academic evaluation platform that helps universities, departments, teachers, and now students manage the full exam-evaluation lifecycle. The platform supports session creation, answer-sheet processing, automated grading, cheat-risk analysis, dashboard insights, question paper generation, and student-side result visibility with reevaluation requests.
+OmniMark AI is an integrated academic evaluation platform that automates large parts of answer-sheet assessment while preserving teacher control for final decisions and reevaluation.
 
-## Functional Requirements
+The system is built around:
+- structured role-based access (university, teacher, student),
+- session-centric exam processing,
+- asynchronous grading orchestration,
+- multimodal text extraction (OCR + native PDF text paths),
+- dual grading engines (NLP and LLM),
+- cheating-risk analytics and clustering,
+- teacher-facing analytics and recommendation outputs,
+- student reevaluation request lifecycle.
 
-**Authentication & Roles**
-* JWT-based authentication with role-aware access patterns.
-* Role support for University Admin, Teacher, and Student users.
-* Secure password hashing using Bcrypt.
-* Separate student login flow for simplified exam-result access.
+This document represents the currently implemented system behavior.
 
-**Teacher & University Module**
-* Create and manage evaluation sessions.
-* Upload question paper and teacher model answer.
-* Upload student scripts in bulk (ZIP) and trigger processing.
-* Monitor processing state and fetch session-level results.
-* Access dashboard metrics and OMI AI analysis.
+## 2. Problem Context and Design Intent
 
-**Student Module (New)**
-* Student login using roll number + password.
-* View personal results across evaluated sessions.
-* Submit reevaluation requests with reasons.
-* Track outcomes through teacher-managed approval/rejection flow.
+At institutional scale, manual evaluation creates pressure across three dimensions:
+- throughput: large script volumes and tight publication timelines,
+- consistency: subjective variance in marking quality,
+- visibility: delayed feedback loops for teachers and students.
 
-**Reevaluation Workflow (Expanded)**
-* Teachers can directly reevaluate a student result.
-* Teachers can review student-submitted reevaluation requests.
-* Requests can be approved (triggers reevaluation) or rejected.
-* Reevaluation history is preserved for traceability.
+OmniMark AI addresses these pressures through a pipeline that standardizes session setup, automates batch processing, and introduces observability into grading and risk patterns.
 
-**Automated Answer Evaluation (AI Engine)**
-* **NLP Mode (Deterministic):** Fast, robust scoring leveraging Sentence Transformers (`model.encode`) and NLTK for text preprocessing. The scoring logic computes a weighted composite score: 
-  * `80% Semantic Similarity` (cosine similarity of embeddings between teacher model and student answer)
-  * `15% Key Word Overlap` (lemmatized keyword intersection scoring)
-  * `5% Length Factor` (dynamic length penalty based on `min_answer_length` constraints)
-* **LLM Mode (Generative):** Context-rich grading using Ollama-backed LLMs for nuanced subjective answers, parsing complex multi-part questions, and generating qualitative feedback.
-* Supports configurable evaluation preferences, stop-word removal, OCR-artifact normalization, and custom dynamic prompts.
+## 3. Implemented Functional Scope
 
-**Handwriting & Document Processing**
-* Advanced OCR pipeline using PaddleOCR + `pdf2image` for robust text extraction from scanned, handwritten answer scripts.
-* PDF text extraction fallback for digitally native or non-OCR flows, complete with artifact cleaning (`r"(.)\1{3,}"` regex for OCR noise).
+### 3.1 Identity and Role Model
 
-**Cheat Detection Engine (Advanced Analytics)**
-* **Multi-Signal Similarity Scoring:** Computes a composite risk score for pairwise student comparisons using:
-  * `45% Semantic Overlap` (Sentence-Transformer embeddings, normalized cosine distance)
-  * `20% Lexical Overlap` (Jaccard similarity on lemmatized tokens)
-  * `15% Sequence Matching` (difflib SequenceMatcher ratio for exact string sequence overlap)
-  * `15% Rare Overlap` (TF-IDF weighted rare keyword intersection)
-  * `5% Length Similarity` (normalized length variance)
-* **DBSCAN Clustering (Cohort Analysis):** Employs Density-Based Spatial Clustering of Applications with Noise (DBSCAN) using a cosine distance metric (`eps=0.22`, `min_samples=2`) on high-dimensional answer embeddings. This identifies organized cheating cohorts and suspicious similarity bands, rather than just isolated pairs.
-* **Adaptive Thresholding:** Dynamically computes risk thresholds (`mean + 1.5 * std`) across the batch distribution to reduce false positives in highly standardized technical answers.
+Roles in active use:
+- **University**: administrative owner of teacher accounts.
+- **Teacher**: session owner and primary evaluator/reviewer.
+- **Student**: result consumer and reevaluation requester.
 
-**OMI (OmniMark Intelligence) & Analytics**
-* Teacher summary analytics and session-wise metrics powered by Pandas and NumPy aggregations.
-* AI-generated interpretation of class performance trends, highlighting knowledge gaps.
+Auth implementation includes:
+- JWT issuance and role propagation.
+- Optional-user decoding for routes that can work in both open and secured contexts.
+- Backward compatibility logic for email casing and legacy password storage.
 
-**QCP (Question Paper Creator)**
-* AI-assisted question paper generation utilizing constraint-solving generation to ensure balanced cognitive load (Bloom's Taxonomy coverage) and subject context integration.
+### 3.2 Session-Centric Evaluation Lifecycle
 
-## Non-Functional Requirements
-* Reliable grading and analytics outputs with reproducible pipelines.
-* **Measured Testing:** Current local verification uses pytest and pytest-cov with **32 passing tests** and **81% measured coverage**. See `test_coverage_report.md` for the actual command output and module-level coverage table.
-* Asynchronous processing for heavy OCR/LLM operations through Celery worker tasks (`celery~=5.4.0`). Local development defaults to SQLite-backed Celery transport; production deployments should use Redis or RabbitMQ via environment configuration.
-* Secure credential handling with role-based endpoint access for core authenticated flows.
-* Responsive UI with modular React components.
-* Maintainable architecture with clear separation of API, worker logic, and AI engine modules.
+Each evaluation cycle is modeled as a **session** with:
+- a question paper,
+- a teacher model answer,
+- grading preferences,
+- correction mode,
+- uploaded student answer bundle.
 
-**problem_statement:** Manual evaluation at institutional scale is time-consuming and inconsistent. External reports indicate that a 10-question paper may take about 20-30 minutes per student to check with quality, and re-evaluation in major exams can reveal substantial manual marking errors. Educators also need tooling for cheating analysis, analytics-driven interventions, and transparent reevaluation. Students need direct visibility into outcomes and a structured way to request correction review. In OmniMark AI testing, model-based correction completes in ~3 minutes with ~95% average accuracy. See [`manual_paper_evaluation_research.md`](./manual_paper_evaluation_research.md) for the supporting research context.
+Lifecycle transitions:
+1. `created`
+2. `uploaded`
+3. `processing`
+4. `processed`
 
-**proposed_solution:** OmniMark AI provides a full-stack AI evaluation system where teachers and universities can automate grading and analysis, while students can access marks and request reevaluation through both authenticated and compatibility endpoint flows. The backend orchestrates OCR, NLP/LLM grading, and analytics, while the frontend offers dedicated dashboards for each actor.
+The lifecycle is persisted in MongoDB and mirrored in frontend workflow navigation.
 
-**technologies_used:** React 19, TypeScript, Tailwind CSS 4, Vite, Axios, Recharts, FastAPI, Python, MongoDB (pymongo), JWT, Pydantic, Ollama/LLM integration, PaddleOCR, pdf2image, NLTK, Sentence-Transformers, Scikit-learn, Pandas, NumPy, Celery.
+### 3.3 Asynchronous Processing and Task Boundaries
 
-**system_architecture:** Three-tier architecture with a React frontend, FastAPI orchestration layer, and MongoDB persistence. A dedicated `Engine` layer provides OCR, grading (NLP/LLM), cheat detection, dashboard statistics, OMI insights, and QCP generation. Background tasks/process workers handle long-running evaluation jobs via Celery SQLite-backed broker locally.
+#### Task A: `process_session`
+Responsibilities:
+- unzip uploaded archive,
+- discover PDF submissions,
+- auto-map student identity from filename,
+- extract answer text using OCR/non-OCR path,
+- dispatch to chosen grading engine,
+- persist result rows,
+- update class roster history,
+- maintain progress counters,
+- transition session state,
+- trigger cheat-detection phase.
 
-The cheat detection pipeline now emits pairwise scores plus answer clusters, and the teacher analytics UI renders both views.
+#### Task B: `check_cheat_in_session`
+Responsibilities:
+- collect answer texts from results (with fallback extraction for legacy records),
+- run cheating analysis,
+- persist session-level risk report,
+- persist per-student risk metadata.
 
-**in_scope:**
-* Session-based exam evaluation for teachers/university.
-* Student authentication and personal result retrieval.
-* Student reevaluation requests and teacher approval/rejection flow.
-* NLP/LLM grading, OCR extraction, cheat analysis, and dashboard insights.
-* Question paper generation support.
+### 3.4 Grading Engine Implementations
 
-**out_scope:**
-* Deep LMS/LTI integrations in current version.
-* Real-time remote proctoring using live camera streams.
-* Fully reliable diagram/math-expression visual grading in all formats.
-* Offline-first deployment and edge execution.
+#### NLP Engine
+Current logic composes a weighted score from:
+- semantic similarity,
+- keyword overlap,
+- answer-length adequacy.
 
-**future_enhancements:**
-* **Federated Learning for Grading Models:** Enable cross-university model training on grading patterns without sharing sensitive student PII or raw answer scripts, utilizing federated averaging.
-* **Multimodal Real-Time Proctoring:** Integrate edge AI computer vision (gaze tracking, head pose estimation) and ambient audio anomaly detection to flag suspicious behavior synchronously during remote exams.
-* **Blockchain-Backed Immutable Grade Verification:** Store hashed, cryptographically signed evaluation results on a distributed ledger to prevent post-evaluation tampering and ensure absolute academic integrity.
-* **Generative Synthetic Dataset Augmentation:** Use advanced LLMs to generate synthetic student answers spanning varying levels of correctness and edge cases to continuously train and fine-tune the local grading models.
-* **Self-Supervised Handwriting Recognition:** Implement self-supervised transformer models tailored for extremely low-quality scans and zero-shot multilingual handwritten script recognition.
-* **Explainable AI (XAI) Grading Reports:** Implement attention-map visualizations for NLP/LLM grading, showing teachers and students exactly which sentences or phrases contributed positively or negatively to the final score.
+Behavioral controls include:
+- language exam mode handling,
+- min-answer-length normalization,
+- mark capping to configured maximum.
 
-**conclusion:** OmniMark AI now goes beyond evaluator tooling by including a student-facing academic transparency loop. With teacher/university workflows, AI-assisted grading, analytics, and a structured reevaluation module, the platform is positioned as an end-to-end academic assessment system with strong practical relevance.
+#### LLM Engine
+Current logic:
+- builds strict JSON prompt with grading constraints,
+- calls configured provider/model,
+- parses JSON response,
+- returns explicit error payload when model output is non-JSON.
 
-**projectType:** AI-SaaS Web Application
+Also supports a dedicated reevaluation prompt flow.
 
-## References
-- [manual_paper_evaluation_research.md](./manual_paper_evaluation_research.md)
+### 3.5 OCR and Text Acquisition Strategy
+
+For handwritten/scanned workflows:
+- PDFs are rendered to images per page.
+- OCR fallback chain is applied for robustness.
+
+For non-handwritten workflows:
+- direct PDF text extraction path with normalization logic that attempts to fix extraction artifacts.
+
+This dual-path approach is implemented and selected per-session preference (`is_handwritten`).
+
+### 3.6 Cheating-Risk Analytics
+
+Risk analysis is not a single-signal check.
+The implemented engine calculates pairwise similarity using multiple complementary signals and synthesizes a score.
+
+Implemented capabilities:
+- pair ranking and suspicious-flag filtering,
+- per-student risk summarization,
+- cluster-level grouping via DBSCAN,
+- response payload with pair, student, cluster, and summary sections.
+
+### 3.7 Teacher Analytics and OMI Layer
+
+Dashboard summary aggregation computes:
+- macro metrics,
+- temporal trends,
+- common mistake categories,
+- topper snapshots,
+- score distributions,
+- risk-band segmentation.
+
+OMI (`/omi/analyze`) consumes this structured summary and produces JSON-formatted instructional insights.
+
+### 3.8 Reevaluation Governance
+
+Implemented request loop:
+- Student creates request with reason.
+- Teacher reviews and resolves request.
+- Approve path triggers reevaluation and result overwrite with historical trace.
+- Reject path captures reason and timestamp.
+
+This preserves an auditable result-change history per evaluated script.
+
+### 3.9 Question Paper Composer
+
+QCP endpoint supports generating question papers from:
+- requested structure/preferences,
+- uploaded relevant reference content,
+- teacher custom instructions.
+
+Response is expected in JSON form and parser safeguards are present.
+
+## 4. System Architecture
+
+### 4.1 Component Topology
+
+- **Presentation layer**: React application with role-specific routes and views.
+- **Application layer**: FastAPI route handlers, authorization, orchestration.
+- **Processing layer**: Celery workers for heavy/background workloads.
+- **Intelligence layer**: Engine modules for OCR, grading, risk scoring, and insight generation.
+- **Persistence layer**: MongoDB collections for users, sessions, results, requests, and classroom aggregates.
+
+### 4.2 Control-Plane vs Data-Plane Separation
+
+- Control plane: API validation, role checks, session transitions.
+- Data plane: OCR/grading/risk computations executed out-of-band through task workers.
+
+This separation enables non-blocking API behavior under heavy script batches.
+
+## 5. Backend API Surface (Implemented)
+
+### 5.1 Health
+- `GET /health`
+
+### 5.2 Authentication and User Management
+- `POST /auth/univ/register`
+- `POST /auth/login`
+- `POST /auth/student/login`
+- `GET /teachers/me`
+
+### 5.3 University Operations
+- `POST /univ/teachers`
+- `GET /univ/teachers`
+- `PUT /univ/teachers/{teacher_id}`
+- `DELETE /univ/teachers/{teacher_id}`
+
+### 5.4 Session Operations
+- `POST /session/create`
+- `GET /sessions`
+- `GET /session/{session_id}`
+- `DELETE /session/{session_id}`
+- `POST /session/{session_id}/upload_zip`
+- `POST /session/{session_id}/process`
+- `GET /session/{session_id}/status`
+- `GET /session/{session_id}/results`
+
+### 5.5 Analytics and OMI
+- `GET /dashboard/teacher_stats`
+- `GET /dashboard/teacher_summary`
+- `GET /omi/analyze`
+- `GET /session/{session_id}/stats`
+
+### 5.6 Cheating Risk
+- `POST /session/{session_id}/cheat_detection`
+- `GET /session/{session_id}/cheat_report`
+
+### 5.7 Classroom, Student, and Reevaluation Flows
+- `GET /teacher/my-class`
+- `GET /teacher/my-class/{rollnum}`
+- `GET /student/{rollnum}/results`
+- `POST /student/{rollnum}/request-reevaluation`
+- `GET /teacher/reevaluation-requests`
+- `POST /teacher/reevaluation-requests/{request_id}/approve`
+- `POST /teacher/reevaluation-requests/{request_id}/reject`
+- `POST /session/{session_id}/student/{student_name}/reevaluate`
+
+### 5.8 Question Paper Composer
+- `POST /QCP`
+
+## 6. Data Persistence Model (Observed)
+
+### 6.1 Collections in runtime usage
+- `users`
+- `students`
+- `sessions`
+- `results`
+- `classroom_students`
+- `student_requests`
+
+### 6.2 Session document role
+`session` is the orchestration anchor. It stores metadata, processing status, preferences, teacher ownership, and cheat-detection report references.
+
+### 6.3 Result document role
+Each result row captures student-level evaluation output and optional appended structures such as:
+- `cheat_detection` summary,
+- `reevaluation_history` audit trail.
+
+### 6.4 Classroom aggregate role
+`classroom_students` acts as teacher-scoped longitudinal student history built from per-session processing.
+
+## 7. Frontend Application Design (Implemented)
+
+### 7.1 Route map
+- `/`
+- `/auth`
+- `/univ-dashboard`
+- `/teacher-dashboard`
+- `/student-auth`
+- `/student-dashboard`
+
+### 7.2 Teacher dashboard orchestration
+The teacher page coordinates:
+- session creation,
+- upload validation and progress display,
+- status polling for in-flight processing,
+- analytics and OMI views,
+- QCP generation,
+- classroom drill-down,
+- reevaluation actions.
+
+### 7.3 University dashboard
+University admin can manage teacher list directly from UI.
+
+### 7.4 Student dashboard
+Student can inspect evaluated sessions and submit reevaluation requests.
+
+## 8. Configuration and Environment Controls
+
+### 8.1 Mandatory startup checks
+The backend enforces:
+- database URI presence,
+- JWT secret presence,
+- production CORS restrictions.
+
+### 8.2 LLM provider flexibility
+System supports:
+- local/provider-based Ollama usage,
+- OpenAI-compatible route through configured base URL and key.
+
+### 8.3 Celery transport defaults
+Development defaults are SQLite-backed when broker/backend are unset.
+Production deployments should explicitly provide durable message broker and backend.
+
+## 9. Deployment and Operations
+
+### 9.1 Local run path
+- install Python + frontend dependencies,
+- run API and frontend (`npm run dev`),
+- run Celery worker in separate process.
+
+### 9.2 Docker compose path
+Repository includes `docker-compose.yml` with services for:
+- backend
+- frontend
+- mongodb
+
+### 9.3 Operational observability
+Processing progress is exposed via session status endpoint fields (`processed`/`total_files`).
+Cheat detection exposes runtime status (`running/completed/failed`) and timestamps.
+
+## 10. Testing and Validation Coverage
+
+The repository contains a multi-file pytest suite (16 files) that exercises:
+- authentication and role flows,
+- route behaviors,
+- worker pipeline logic,
+- OCR fallback path behavior,
+- cheat detection unit behavior,
+- NLP grading unit behavior,
+- dashboard metric generation behavior,
+- OMI-related endpoint behavior.
+
+This provides good functional confidence for current implemented pathways.
+
+## 11. Engineering Strengths (Evidence-Based)
+
+1. **Complete role-based workflow implementation** from account creation to student reevaluation requests.
+2. **Asynchronous processing architecture** for heavy workloads via Celery.
+3. **Multi-strategy text extraction** improving robustness for real-world input quality variance.
+4. **Hybrid grading strategy** supporting deterministic NLP scoring and LLM-based contextual evaluation.
+5. **Cheat detection beyond naive similarity** with multi-signal scoring and semantic clustering.
+6. **Practical observability endpoints** that expose progress and reports for UI consumption.
+
+## 12. Known Risks and Limitations (Code-Observed)
+
+1. Student auto-provisioning currently uses a static default password (`12345678`) and should be replaced in hardened environments.
+2. SQLite Celery transport defaults are development-focused; production-grade queues should use Redis/RabbitMQ.
+3. `backend/pyproject.toml` is minimal and not a full dependency definition; runtime dependency truth is in `requirements.txt`.
+4. OCR quality and LLM output quality remain model/input dependent and should be monitored per deployment context.
+
+## 13. Claims and Evidence Policy for Hackathon Review
+
+### 13.1 Accuracy and speed claims
+Historical project documentation mentions approximately:
+- 95% accuracy,
+- 3-minute processing.
+
+In the current repo, these values are narrative/project-reported claims and are not enforced by an automated benchmark harness in tests.
+
+### 13.2 Recommended presentation framing
+For external judging, present those figures as:
+- **team-observed outcomes**,
+- not universal guarantees,
+- and pair them with reproducibility plans (fixed datasets, benchmark script, and repeated runs).
+
+This protects factual integrity while still communicating project direction.
+
+## 14. Suggested Next Hardening Milestones
+
+1. Introduce benchmark harness for reproducible latency/accuracy reporting.
+2. Replace static student default credentialing with secure onboarding/reset flow.
+3. Move Celery production profile to managed Redis/Rabbit and tune concurrency.
+4. Add explicit schema docs (OpenAPI examples + collection contracts).
+5. Add integration tests for full session pipelines with representative fixture PDFs.
+
+## 15. Conclusion
+
+OmniMark AI, as currently implemented, is a substantial full-stack evaluation platform with real operational depth:
+- role-based governance,
+- asynchronous processing,
+- integrated OCR and grading strategies,
+- cheating-risk intelligence,
+- analytics and recommendation surfaces,
+- reevaluation control loop.
+
+From a hackathon perspective, the project demonstrates strong systems integration, realistic workflow design, and clear extensibility toward production-grade deployments.
