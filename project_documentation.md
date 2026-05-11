@@ -325,7 +325,7 @@ Cheat detection exposes runtime status (`running/completed/failed`) and timestam
 
 ## 10. Testing and Validation Coverage
 
-The repository contains a multi-file pytest suite (16 files) that exercises:
+The repository contains a multi-file pytest suite (23 files) that exercises:
 - authentication and role flows,
 - route behaviors,
 - worker pipeline logic,

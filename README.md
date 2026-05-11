@@ -430,7 +430,7 @@ Primary collections used by runtime code:
 
 ## 13. Testing and Validation
 
-The repository contains 17 Python test files under `tests/` covering:
+The repository contains 23 Python test files under `tests/` covering:
 - auth flows,
 - route behavior,
 - worker processing,
