@@ -10,8 +10,6 @@ from backend.db import db
 from backend.auth import get_password_hash
 from Engine.OCR.ocr import extract_text_from_pdf
 from Engine.cheat_detection.main import analyze_session_cheating
-from Engine.grade.nlp import Correct_NLP
-from Engine.grade.llm import LLM_Grade
 from pypdf import PdfReader
 from backend.worker.celery_app import celery_app
 
@@ -116,6 +114,12 @@ def process_session(session_id, file_location):
         {"$set": {"total_files": total, "processed": 0}}
     )
     correction_mode = session.get("correction_mode", "NLP")
+
+    # Dynamic imports to avoid circular dependency
+    if correction_mode == "NLP":
+        from Engine.grade.nlp import Correct_NLP
+    elif correction_mode == "LLM":
+        from Engine.grade.llm import LLM_Grade
 
     #get correction preferences from db using session_id
     preferences = session.get("preferences", {})

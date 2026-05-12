@@ -51,14 +51,15 @@ def _cosine_similarity(left, right):
         return 0.0
 
 
-def cluster_answers(answers, eps=0.22, min_samples=2):
-    """Cluster answers by semantic similarity using DBSCAN.
-    
+def cluster_answers(answers, eps=0.22, min_samples=2, distance_matrix=None):
+    """Cluster answers by semantic similarity or precomputed distance using DBSCAN.
+
     Args:
         answers: List of answer dicts with 'student_name' and 'answer_text'.
         eps: DBSCAN epsilon (cosine distance threshold).
         min_samples: Minimum samples in a neighborhood to form a cluster.
-    
+        distance_matrix: Optional precomputed distance matrix (metric="precomputed").
+
     Returns:
         Dict with 'labels', 'clusters', 'student_cluster_map', 'noise'.
     """
@@ -79,21 +80,26 @@ def cluster_answers(answers, eps=0.22, min_samples=2):
 
         if not candidates:
             return {"labels": [], "clusters": [], "student_cluster_map": {}, "noise": []}
-        
-        # Encode all answers at once for efficiency
-        answer_texts = [row["answer_text"] for row in candidates]
-        embeddings = model.encode(answer_texts, normalize_embeddings=True)
-        embeddings = np.asarray(embeddings, dtype=np.float32)
-        
-        # Validate embeddings
-        if np.any(np.isnan(embeddings)) or np.any(np.isinf(embeddings)):
-            logger.warning("Embeddings contain NaN/inf, cleaning...")
-            embeddings = np.nan_to_num(embeddings, nan=0.0, posinf=1.0, neginf=0.0)
-        
-        # Run DBSCAN clustering
-        clustering = DBSCAN(eps=eps, min_samples=min_samples, metric="cosine").fit(embeddings)
-        labels = clustering.labels_.tolist()
 
+        if distance_matrix is not None:
+            # Use precomputed distance matrix
+            clustering = DBSCAN(eps=eps, min_samples=min_samples, metric="precomputed").fit(distance_matrix)
+            embeddings = None # Not needed for precomputed
+        else:
+            # Encode and use cosine metric
+            answer_texts = [row["answer_text"] for row in candidates]
+            embeddings = model.encode(answer_texts, normalize_embeddings=True)
+            embeddings = np.asarray(embeddings, dtype=np.float32)
+
+            # Validate embeddings
+            if np.any(np.isnan(embeddings)) or np.any(np.isinf(embeddings)):
+                logger.warning("Embeddings contain NaN/inf, cleaning...")
+                embeddings = np.nan_to_num(embeddings, nan=0.0, posinf=1.0, neginf=0.0)
+
+            # Run DBSCAN clustering
+            clustering = DBSCAN(eps=eps, min_samples=min_samples, metric="cosine").fit(embeddings)
+
+        labels = clustering.labels_.tolist()
         grouped_indexes = defaultdict(list)
         for index, label in enumerate(labels):
             grouped_indexes[label].append(index)
@@ -112,10 +118,14 @@ def cluster_answers(answers, eps=0.22, min_samples=2):
             similarities = []
             for left in range(len(member_indexes)):
                 for right in range(left + 1, len(member_indexes)):
-                    sim = _cosine_similarity(
-                        embeddings[member_indexes[left]],
-                        embeddings[member_indexes[right]],
-                    )
+                    if distance_matrix is not None:
+                        # Use 1 - distance as similarity for multi-signal scores
+                        sim = 1.0 - float(distance_matrix[member_indexes[left]][member_indexes[right]])
+                    else:
+                        sim = _cosine_similarity(
+                            embeddings[member_indexes[left]],
+                            embeddings[member_indexes[right]],
+                        )
                     if not np.isnan(sim) and not np.isinf(sim):
                         similarities.append(sim)
 

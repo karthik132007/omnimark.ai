@@ -93,7 +93,7 @@ def _pair_score(semantic, jaccard, sequence, rare_overlap, length_similarity, sh
     """Compute pair similarity score with robustness to NaN/inf."""
     # Validate inputs
     for val in [semantic, jaccard, sequence, rare_overlap, length_similarity]:
-        if not isinstance(val, (int, float)) or np.isnan(val) or np.isinf(val):
+        if not isinstance(val, (int, float, np.floating)) or np.isnan(val) or np.isinf(val):
             return 0.0
     
     score = (
@@ -311,7 +311,22 @@ def analyze_session_cheating(student_answers, threshold=0.82, min_word_count=25,
             threshold = adaptive
             flagged_pairs = [row for row in pair_reports if row["suspicious"] and row["score"] >= threshold]
 
-    cluster_source = cluster_answers(candidates, eps=0.22, min_samples=2)
+    # Build distance matrix for multi-signal clustering
+    n_candidates = len(candidates)
+    dist_matrix = np.ones((n_candidates, n_candidates))
+    np.fill_diagonal(dist_matrix, 0.0)
+    for i in range(n_candidates):
+        for j in range(i + 1, n_candidates):
+            p_key = tuple(sorted((candidates[i]["student_name"], candidates[j]["student_name"])))
+            pair_report = pair_lookup.get(p_key)
+            if pair_report:
+                # Use 1 - score as distance
+                dist = 1.0 - float(pair_report["score"])
+                dist_matrix[i][j] = dist
+                dist_matrix[j][i] = dist
+
+    # Use a slightly larger eps (0.35) for multi-signal distance (corresponds to score >= 0.65)
+    cluster_source = cluster_answers(candidates, eps=0.35, min_samples=2, distance_matrix=dist_matrix)
     student_cluster_map = cluster_source.get("student_cluster_map", {})
     cluster_reports = []
     for cluster in cluster_source.get("clusters", []):

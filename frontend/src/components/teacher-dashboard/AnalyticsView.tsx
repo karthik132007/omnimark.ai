@@ -45,6 +45,18 @@ const handleExport = async (sessionId: string, format: 'csv' | 'xlsx' = 'csv') =
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
+const getRiskTone = (level?: string) => {
+  const l = level?.toLowerCase();
+  switch (l) {
+    case 'critical': return 'bg-rose-50 text-rose-700 border-rose-100';
+    case 'high': return 'bg-orange-50 text-orange-700 border-orange-100';
+    case 'medium': return 'bg-amber-50 text-amber-700 border-amber-100';
+    case 'low': return 'bg-sky-50 text-sky-700 border-sky-100';
+    case 'minimal': return 'bg-slate-100 text-slate-500 border-slate-200';
+    default: return 'bg-slate-50 text-slate-500 border-slate-100';
+  }
+};
+
 const KNOWN_STRENGTHS = new Set([
   "Good conceptual clarity", "Accurate facts", "Relevant content", "Well-structured answer", "Good examples", "Comprehensive coverage", "Good language use", "Critical thinking", "Original insights", "Effective communication", "Formal definition", "Real-world applications", "Clear intuitive understanding", "Sound reasoning", "Correct method/process", "Correct units/notation", "Answers all sub-parts", "Concise and focused", "Well-justified claims"
 ]);
@@ -1079,7 +1091,7 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
                 <div key={cluster.cluster_id} className="rounded-2xl border border-white bg-white px-4 py-3 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm font-bold text-slate-900">Cluster #{cluster.cluster_id}</div>
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${cluster.suspicious ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide border ${getRiskTone(cluster.risk_level)}`}>
                       {cluster.risk_level}
                     </span>
                   </div>
@@ -1112,9 +1124,12 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
             <div className="mt-2 space-y-1">
               {cheatReport.flagged_pairs.slice(0, 3).map((pair) => (
                 <div key={`${pair.student_1}-${pair.student_2}`} className="flex flex-wrap items-center gap-2 text-xs font-semibold text-amber-800">
-                  <span>{pair.student_1} vs {pair.student_2} - {Math.round(pair.score * 100)}% ({pair.risk_level})</span>
+                  <span>{pair.student_1} vs {pair.student_2} - {Math.round(pair.score * 100)}%</span>
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide border ${getRiskTone(pair.risk_level)}`}>
+                    {pair.risk_level}
+                  </span>
                   {pair.cluster_id ? (
-                    <span className="inline-flex rounded-full bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700">
+                    <span className="inline-flex rounded-full bg-white border border-amber-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-700">
                       Cluster #{pair.cluster_id}
                     </span>
                   ) : null}
