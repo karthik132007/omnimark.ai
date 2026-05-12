@@ -1061,7 +1061,7 @@ export const AnalyticsView = ({ selectedSession, isProcessing }: AnalyticsViewPr
             </div>
             <div className="rounded-xl bg-slate-50 px-4 py-3">
               <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Highest Pair Score</div>
-              <div className="mt-1 text-xl font-extrabold text-slate-900">{Math.round(cheatReport.summary.highest_pair_score * 100)}%</div>
+              <div className="mt-1 text-xl font-extrabold text-slate-900">{Math.round((cheatReport.summary.highest_pair_score || 0) * 100)}%</div>
             </div>
           </div>
         ) : null}
