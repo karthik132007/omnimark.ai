@@ -64,7 +64,6 @@ def test_teacher_dashboard_summary_with_results(monkeypatch):
     assert summary["trend"][0]["name"] == "Midterm"
     assert summary["trend"][0]["submissions"] == 2
     assert summary["toppers"][0]["student_name"] == "B"
-    assert any(item["name"] == "OCR quality issue" for item in summary["common_mistakes"])
     assert sum(item["students"] for item in summary["score_distribution"]) == 3
 
 

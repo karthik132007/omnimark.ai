@@ -97,8 +97,6 @@ def _collect_mistakes(result, counter):
     if isinstance(other_info, dict):
         for weakness in other_info.get("weaknesses", []) or []:
             counter[str(weakness).strip()[:80] or "Weak concept coverage"] += 1
-        if other_info.get("ocr_issue_detected"):
-            counter["OCR quality issue"] += 1
 
     feedback = result.get("question_feedback")
     if isinstance(feedback, dict):

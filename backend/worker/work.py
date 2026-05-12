@@ -299,50 +299,45 @@ def get_text_from_nonOCR_pdf(pdf_path):
 
     # Normalize common PDF extraction artifacts while preserving meaningful structure.
     text = text.replace("\r", "\n")
-    raw_lines = [re.sub(r"[ \t]+", " ", ln).strip() for ln in text.split("\n")]
-    lines = [ln for ln in raw_lines]
-
+    # aggressive cleanup of tabs and multiple spaces
+    text = re.sub(r"[ \t]+", " ", text)
+    
+    raw_lines = [ln.strip() for ln in text.split("\n")]
+    
     list_marker_re = re.compile(r"^(\d+[\).:-]|[-*•])\s+")
     merged_parts = []
-    prev_line = ""
-
-    for line in lines:
+    
+    for line in raw_lines:
         if not line:
             # Preserve paragraph breaks.
             if merged_parts and merged_parts[-1] != "\n\n":
                 merged_parts.append("\n\n")
-            prev_line = ""
             continue
 
-        if not merged_parts:
+        if not merged_parts or merged_parts[-1] == "\n\n":
             merged_parts.append(line)
-            prev_line = line
             continue
 
-        # Keep list and heading style breaks on new lines.
-        if list_marker_re.match(line) or prev_line.endswith(":"):
-            if merged_parts[-1] != "\n\n":
-                merged_parts.append("\n")
+        prev_line = merged_parts[-1]
+        
+        # Heuristic: Join if the current line is a continuation or if either line is very short (likely word-per-line artifact)
+        is_list = list_marker_re.match(line)
+        prev_is_list = list_marker_re.match(prev_line)
+        prev_ends_with_break = re.search(r'[.!?:]$', prev_line)
+        
+        # Join if:
+        # 1. Current is not a list item
+        # 2. AND (Previous doesn't end with a break OR is very short and not a list start)
+        if not is_list and (not prev_ends_with_break or (len(prev_line.split()) <= 2 and not prev_is_list)):
+            # Join with space
+            merged_parts[-1] = f"{prev_line} {line}"
+        else:
+            # New line
+            merged_parts.append("\n")
             merged_parts.append(line)
-            prev_line = line
-            continue
-
-        # Word-per-line artifact fix: join tiny fragments with spaces.
-        prev_words = len(prev_line.split())
-        cur_words = len(line.split())
-        if prev_words <= 2 and cur_words <= 2:
-            merged_parts.append(" ")
-            merged_parts.append(line)
-            prev_line = f"{prev_line} {line}"
-            continue
-
-        # Default: join wrapped lines with spaces inside a paragraph.
-        merged_parts.append(" ")
-        merged_parts.append(line)
-        prev_line = line
 
     cleaned = "".join(merged_parts)
-    cleaned = re.sub(r"[ \t]+", " ", cleaned)
-    cleaned = re.sub(r" ?\n ?","\\n", cleaned)
+    cleaned = re.sub(r" +", " ", cleaned)
+    # Ensure paragraph breaks are preserved as real newlines, not escaped strings
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     return cleaned.strip()

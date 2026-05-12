@@ -267,8 +267,6 @@ const LlmAnalytics = ({
   const avg = totals.length ? totals.reduce((a, b) => a + b, 0) / totals.length : 0;
   const avgConf = confidences.length ? confidences.reduce((a, b) => a + b, 0) / confidences.length : 0;
   // Needs attention (confidence < 75%)
-  const ocrIssuesCount = results.filter(r => (r.result as LlmResult).other_info?.ocr_issue_detected).length;
-  // Needs attention (confidence < 75%)
   const needsAttentionCount = results.filter(r => (r.result as LlmResult).confidence_score < 75).length;
 
   // Top performers
@@ -317,12 +315,11 @@ const LlmAnalytics = ({
   return (
     <div className="space-y-6 relative">
       {/* Top Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={Users} label="Total Students" value={results.length} tone="sky" />
         <StatCard icon={Award} label="Average Marks" value={avg.toFixed(1)} tone="emerald" />
         <StatCard icon={ShieldCheck} label="Avg Confidence" value={`${avgConf.toFixed(0)}%`} tone="slate" />
         <StatCard icon={AlertTriangle} label="Needs Attention" value={needsAttentionCount} tone="amber" sub="Confidence < 75%" />
-        <StatCard icon={FileText} label="OCR Issues" value={ocrIssuesCount} tone="rose" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
@@ -398,14 +395,12 @@ const LlmAnalytics = ({
                     <th className="px-4 py-4">Student Name</th>
                     <th className="px-4 py-4 text-center">Total Marks</th>
                     <th className="px-4 py-4 text-center">AI Confidence</th>
-                    <th className="px-4 py-4 text-center">OCR Issue</th>
                     <th className="px-8 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((r, i) => {
                     const res = r.result as LlmResult;
-                    const hasOcrIssue = res.other_info?.ocr_issue_detected;
 
                     let perfLabel = 'Average';
                     let perfTone = 'bg-amber-50 text-amber-700 border-amber-200/50';
@@ -430,13 +425,6 @@ const LlmAnalytics = ({
                           <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${perfTone}`}>
                             {res.confidence_score}% - {perfLabel}
                           </span>
-                        </td>
-                        <td className="px-4 py-4 text-center">
-                          {hasOcrIssue ? (
-                            <span className="inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600">Yes</span>
-                          ) : (
-                            <span className="inline-flex rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-500">No</span>
-                          )}
                         </td>
                         <td className="px-8 py-4 text-right">
                           <button
@@ -574,11 +562,6 @@ const LlmAnalytics = ({
                 <h2 className="text-2xl font-extrabold text-slate-900">{selectedStudent.student_name}</h2>
                 <div className="mt-1 flex items-center gap-3">
                   <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Detailed Report</span>
-                  {(selectedStudent.result as LlmResult).other_info?.ocr_issue_detected && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[9px] font-bold text-amber-700">
-                      <AlertTriangle className="h-2.5 w-2.5" /> OCR Issue
-                    </span>
-                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
